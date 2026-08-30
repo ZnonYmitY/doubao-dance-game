@@ -466,11 +466,74 @@ h1 {
 }
 
 .level-badge.has-image.level-6 {
-  background: linear-gradient(145deg, #15224b, #5a1d64);
+  border-color: rgba(255, 255, 255, 0.92);
+  background: radial-gradient(circle at 30% 22%, rgba(255, 255, 255, 0.96), rgba(215, 234, 255, 0.62) 48%, rgba(84, 126, 255, 0.3) 78%, rgba(255, 63, 142, 0.25));
+  box-shadow: 0 5px 14px rgba(51, 112, 255, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.48);
 }
 
 .level-badge img.is-visible {
   opacity: 1;
+}
+
+.dance-badge-copy {
+  position: absolute;
+  inset: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  color: #1551d6;
+  text-align: center;
+}
+
+.dance-badge-copy b {
+  font-size: clamp(4px, 1.25vw, 5.5px);
+  font-weight: 900;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+}
+
+.dance-mini-mark {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 7px;
+  margin-bottom: 1px;
+}
+
+.dance-mini-mark i {
+  width: 3px;
+  border-radius: 1px;
+  transform: skewY(-16deg);
+}
+
+.dance-mini-mark i:nth-child(1) {
+  height: 5px;
+  background: #3370ff;
+}
+
+.dance-mini-mark i:nth-child(2) {
+  height: 4px;
+  background: #22d6ff;
+}
+
+.dance-mini-mark i:nth-child(3) {
+  height: 7px;
+  background: #1551d6;
+}
+
+.level-badge.is-compact .dance-badge-copy b {
+  font-size: 3.7px;
+}
+
+.level-badge.is-compact .dance-mini-mark {
+  height: 5px;
+  margin-bottom: 0;
+}
+
+.level-badge.is-compact .dance-mini-mark i {
+  width: 2px;
 }
 
 .game-footer {

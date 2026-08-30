@@ -20,9 +20,9 @@ test("server-renders the organization merge game", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>组织碰撞实验 · Doubao Dance<\/title>/i);
-  assert.match(html, /组织碰撞实验/);
-  assert.match(html, /让灵感碰撞起来/);
+  assert.match(html, /<title>合成大豆包 · Doubao Dance<\/title>/i);
+  assert.match(html, /合成大豆包/);
+  assert.match(html, /让组织碰撞起来？/);
   assert.match(html, /字节范儿/);
   assert.match(html, /勇攀高峰/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
@@ -47,6 +47,12 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   assert.match(page, /本年度调整已完成/);
   assert.match(page, /年度绩效/);
   assert.match(page, /getPerformanceRating/);
+  assert.match(page, /高效对齐/);
+  assert.match(page, /非核心环节延后处理/);
+  assert.match(page, /OKR 完成！/);
+  assert.match(page, /卷起来！/);
+  assert.doesNotMatch(page, /完成调整，开始登山/);
+  assert.doesNotMatch(page, /见证 \$\{dances\} 次豆包 Dance/);
   assert.match(page, /context\.strokeText\("勇 攀 高 峰"/);
   assert.doesNotMatch(page, /图标槽位已预留/);
   assert.match(layout, /viewportFit: "cover"/);

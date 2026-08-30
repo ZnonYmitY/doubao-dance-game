@@ -87,6 +87,7 @@ function writeLocalValue(key: string, value: string) {
 function LevelBadge({ levelIndex, compact = false }: { levelIndex: number; compact?: boolean }) {
   const level = LEVELS[levelIndex];
   const [imageFailed, setImageFailed] = useState(false);
+  const isDance = levelIndex === MAX_LEVEL;
   const hasImage = !imageFailed;
 
   return (
@@ -96,15 +97,25 @@ function LevelBadge({ levelIndex, compact = false }: { levelIndex: number; compa
       aria-label={level.name}
       title={level.name}
     >
-      {imageFailed && <span aria-hidden="true">{level.symbol}</span>}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        className={hasImage ? "is-visible" : ""}
-        src={level.icon}
-        alt=""
-        onLoad={() => setImageFailed(false)}
-        onError={() => setImageFailed(true)}
-      />
+      {isDance ? (
+        <span className="dance-badge-copy" aria-hidden="true">
+          <span className="dance-mini-mark"><i /><i /><i /></span>
+          <b>Doubao</b>
+          <b>Dance</b>
+        </span>
+      ) : (
+        <>
+          {imageFailed && <span aria-hidden="true">{level.symbol}</span>}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className={hasImage ? "is-visible" : ""}
+            src={level.icon}
+            alt=""
+            onLoad={() => setImageFailed(false)}
+            onError={() => setImageFailed(true)}
+          />
+        </>
+      )}
     </span>
   );
 }
@@ -113,20 +124,33 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("zh-CN").format(value);
 }
 
-function getSummaryLine(peaks: number) {
-  if (peaks >= 6) return "你的字节范儿已经溢出了";
-  if (peaks >= 4) return "高峰之上，还有高峰";
-  if (peaks >= 2) return "持续突破组织边界";
-  if (peaks === 1) return "完成调整，开始登山";
-  return "组织仍有较大的调整空间";
-}
-
 function getPerformanceRating(score: number, peaks: number, dances: number) {
   if (peaks >= 3 || score >= 6000) return "E";
   if (peaks >= 2 || score >= 3800) return "M+";
   if (peaks >= 1 || score >= 1800) return "M";
   if (dances >= 1 || score >= 700) return "M-";
   return "I";
+}
+
+function getSummaryLine(score: number, peaks: number, dances: number) {
+  const rating = getPerformanceRating(score, peaks, dances);
+  if (rating === "E") return "年度超额交付，字节范儿拉满";
+  if (rating === "M+") return "高效对齐，持续拿结果";
+  if (rating === "M") return "关键路径跑通，组织效能稳定";
+  if (rating === "M-") return "核心目标基本达成";
+  return "年度目标仍在对齐中";
+}
+
+function getMergeToast(newLevel: number, streak: number) {
+  let milestone = "";
+  if (newLevel === MAX_LEVEL) milestone = "豆包开始 Dance！";
+  else if (newLevel === 5) milestone = "卷起来！";
+  else if (newLevel === 4) milestone = "开始认真工作";
+  else if (newLevel === 3) milestone = "协作起来了";
+
+  if (newLevel === MAX_LEVEL || streak < 2) return milestone;
+  const combo = streak >= 4 ? "超预期交付" : streak >= 3 ? "协同效率拉满" : "高效对齐";
+  return milestone ? `${combo} · ${milestone}` : combo;
 }
 
 export default function Home() {
@@ -159,6 +183,11 @@ export default function Home() {
   const vibrationEnabledRef = useRef(true);
   const audioContextRef = useRef<AudioContext | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  const idleDropTimersRef = useRef<Set<number>>(new Set());
+  const lastMergeAtRef = useRef(-Infinity);
+  const mergeStreakRef = useRef(0);
+  const missedMergeDropsRef = useRef(0);
+  const sessionIdRef = useRef(0);
 
   const [score, setScore] = useState(0);
   const [adjustments, setAdjustments] = useState(0);
@@ -270,6 +299,9 @@ export default function Home() {
   }, [bestPeaks, bestScore, playTone, vibrate]);
 
   const resetGame = useCallback(() => {
+    idleDropTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    idleDropTimersRef.current.clear();
+    sessionIdRef.current += 1;
     ballsRef.current = [];
     particlesRef.current = [];
     scoreRef.current = 0;
@@ -281,6 +313,9 @@ export default function Home() {
     dangerElapsedRef.current = 0;
     dangerProgressRef.current = 0;
     lastDropRef.current = -Infinity;
+    lastMergeAtRef.current = -Infinity;
+    mergeStreakRef.current = 0;
+    missedMergeDropsRef.current = 0;
     gameOverRef.current = false;
     pausedRef.current = false;
     activePointerIdRef.current = null;
@@ -322,6 +357,22 @@ export default function Home() {
       bornAt: now,
     });
     lastDropRef.current = now;
+    const adjustmentsAtDrop = adjustmentsRef.current;
+    const sessionId = sessionIdRef.current;
+    const idleTimer = window.setTimeout(() => {
+      idleDropTimersRef.current.delete(idleTimer);
+      if (sessionId !== sessionIdRef.current || gameOverRef.current || pausedRef.current) return;
+      if (adjustmentsRef.current !== adjustmentsAtDrop) {
+        missedMergeDropsRef.current = 0;
+        return;
+      }
+      missedMergeDropsRef.current += 1;
+      if (missedMergeDropsRef.current >= 3) {
+        missedMergeDropsRef.current = 0;
+        showToast("非核心环节延后处理", 1250);
+      }
+    }, 1500);
+    idleDropTimersRef.current.add(idleTimer);
     setStarted(true);
     playTone(310 + level * 35, 0.055, 0, 0.022);
     vibrate(8);
@@ -330,7 +381,7 @@ export default function Home() {
     currentLevelRef.current = upcoming;
     nextLevelRef.current = following;
     setNextLevel(following);
-  }, [levelRadius, playTone, vibrate]);
+  }, [levelRadius, playTone, showToast, vibrate]);
 
   const setAimFromClientX = useCallback((clientX: number) => {
     const board = boardRef.current;
@@ -377,6 +428,7 @@ export default function Home() {
   }, [dropCurrent, levelRadius]);
 
   useEffect(() => {
+    const idleDropTimers = idleDropTimersRef.current;
     const storedSound = readLocalValue("doubao-dance-sound") !== "off";
     const storedVibration = readLocalValue("doubao-dance-vibration") !== "off";
     const storedBestScore = Number(readLocalValue("doubao-dance-best-score") || 0);
@@ -406,6 +458,8 @@ export default function Home() {
     return () => {
       window.cancelAnimationFrame(hydrationFrame);
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      idleDropTimers.forEach((timer) => window.clearTimeout(timer));
+      idleDropTimers.clear();
       audioContextRef.current?.close().catch(() => undefined);
     };
   }, []);
@@ -552,7 +606,23 @@ export default function Home() {
       gradient.addColorStop(0, "#ffffff");
       gradient.addColorStop(0.1, level.color);
       gradient.addColorStop(1, level.accent);
-      context.fillStyle = hasIcon && ball.level !== MAX_LEVEL ? "#ffffff" : gradient;
+      if (ball.level === MAX_LEVEL) {
+        const bubbleGradient = context.createRadialGradient(
+          ball.x - radius * 0.38,
+          ball.y - radius * 0.45,
+          radius * 0.06,
+          ball.x,
+          ball.y,
+          radius,
+        );
+        bubbleGradient.addColorStop(0, "rgba(255,255,255,.96)");
+        bubbleGradient.addColorStop(0.42, "rgba(226,240,255,.68)");
+        bubbleGradient.addColorStop(0.78, "rgba(112,146,255,.34)");
+        bubbleGradient.addColorStop(1, "rgba(255,63,142,.28)");
+        context.fillStyle = bubbleGradient;
+      } else {
+        context.fillStyle = hasIcon ? "#ffffff" : gradient;
+      }
       context.beginPath();
       context.arc(ball.x, ball.y, radius, 0, Math.PI * 2);
       context.fill();
@@ -562,13 +632,38 @@ export default function Home() {
       context.stroke();
 
       if (hasIcon && icon) {
-        context.save();
-        context.beginPath();
-        context.arc(ball.x, ball.y, radius * 0.91, 0, Math.PI * 2);
-        context.clip();
-        const size = radius * (ball.level === MAX_LEVEL ? 2 : 1.92);
-        context.drawImage(icon, ball.x - size / 2, ball.y - size / 2, size, size);
-        context.restore();
+        if (ball.level === MAX_LEVEL) {
+          context.save();
+          context.beginPath();
+          context.arc(ball.x, ball.y, radius * 0.91, 0, Math.PI * 2);
+          context.clip();
+          context.drawImage(
+            icon,
+            10,
+            205,
+            105,
+            105,
+            ball.x - radius * 0.4,
+            ball.y - radius * 0.68,
+            radius * 0.8,
+            radius * 0.64,
+          );
+          context.fillStyle = "#1551d6";
+          context.textAlign = "center";
+          context.textBaseline = "middle";
+          context.font = `850 ${Math.max(8, radius * 0.22)}px Inter, system-ui, sans-serif`;
+          context.fillText("Doubao", ball.x, ball.y + radius * 0.08);
+          context.fillText("Dance", ball.x, ball.y + radius * 0.34);
+          context.restore();
+        } else {
+          context.save();
+          context.beginPath();
+          context.arc(ball.x, ball.y, radius * 0.91, 0, Math.PI * 2);
+          context.clip();
+          const size = radius * 1.92;
+          context.drawImage(icon, ball.x - size / 2, ball.y - size / 2, size, size);
+          context.restore();
+        }
       } else {
         drawFallbackGlyph(ball, radius);
       }
@@ -761,6 +856,10 @@ export default function Home() {
               const mergeY = (first.y + second.y) / 2;
               const mergeVelocityX = (first.vx + second.vx) / 2;
               const mergeVelocityY = Math.min(-70, (first.vy + second.vy) / 2 - 85);
+              mergeStreakRef.current = now - lastMergeAtRef.current <= 1600 ? mergeStreakRef.current + 1 : 1;
+              lastMergeAtRef.current = now;
+              missedMergeDropsRef.current = 0;
+              const mergeStreak = mergeStreakRef.current;
 
               if (first.level === MAX_LEVEL) {
                 const riseFrom = mountainRiseRef.current;
@@ -777,7 +876,7 @@ export default function Home() {
                 addParticles(mergeX, mergeY, "#22d6ff", 15, 235);
                 addParticles(mergeX, mergeY, "#ff3f8e", 15, 235);
                 addParticles(mergeX, mergeY, "#ffffff", 10, 195);
-                showToast("勇攀高峰！", 1450);
+                showToast("OKR 完成！", 1450);
                 vibrate([35, 28, 70]);
                 playTone(523, 0.12, 0, 0.045);
                 playTone(659, 0.15, 0.09, 0.04);
@@ -800,14 +899,9 @@ export default function Home() {
                 if (newLevel === MAX_LEVEL) {
                   dancesRef.current += 1;
                   setDances(dancesRef.current);
-                  showToast("豆包开始 Dance！", 1250);
-                } else if (newLevel === 5) {
-                  showToast("豆包登场", 900);
-                } else if (newLevel === 4) {
-                  showToast("开始认真工作", 900);
-                } else if (newLevel === 3) {
-                  showToast("协作起来了", 850);
                 }
+                const mergeMessage = getMergeToast(newLevel, mergeStreak);
+                if (mergeMessage) showToast(mergeMessage, newLevel === MAX_LEVEL ? 1250 : mergeStreak >= 2 ? 1100 : 900);
                 addParticles(mergeX, mergeY, LEVELS[newLevel].color, 10, 135 + newLevel * 11);
                 playTone(360 + newLevel * 72, 0.07 + newLevel * 0.012, 0, 0.025 + newLevel * 0.002);
                 vibrate(newLevel >= 5 ? [18, 20, 25] : 12);
@@ -942,10 +1036,10 @@ export default function Home() {
 
   const shareSummary = async () => {
     const rating = getPerformanceRating(score, peaks, dances);
-    const text = `我的组织碰撞年度总结：获得 ${formatNumber(score)} 字节范儿，经历 ${adjustments} 次组织架构调整，见证 ${dances} 次豆包 Dance，攀登 ${peaks} 座高峰，绩效 ${rating}。${getSummaryLine(peaks)}！`;
+    const text = `我的合成大豆包年度总结：获得 ${formatNumber(score)} 字节范儿，经历 ${adjustments} 次组织架构调整，攀登 ${peaks} 座高峰，绩效 ${rating}。${getSummaryLine(score, peaks, dances)}！`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "组织碰撞年度总结", text });
+        await navigator.share({ title: "合成大豆包年度总结", text });
       } else {
         await navigator.clipboard.writeText(text);
         setSummaryCopied(true);
@@ -962,8 +1056,8 @@ export default function Home() {
         <div className="brand-mark" aria-hidden="true"><span /><span /><span /></div>
         <div className="title-group">
           <p className="eyebrow">ORGANIZATION LAB</p>
-          <h1>组织碰撞实验</h1>
-          <p className="subtitle">让灵感碰撞起来</p>
+          <h1>合成大豆包</h1>
+          <p className="subtitle">让组织碰撞起来？</p>
         </div>
         <button className="icon-button" type="button" onClick={openSettings} aria-label="打开游戏设置">
           <span /><span /><span />
@@ -1100,7 +1194,7 @@ export default function Home() {
               <div><span>攀登了</span><strong>{peaks}</strong><small>座高峰</small></div>
             </div>
 
-            <blockquote>{getSummaryLine(peaks)}</blockquote>
+            <blockquote>{getSummaryLine(score, peaks, dances)}</blockquote>
             <p className="best-line">历史最佳：{formatNumber(Math.max(bestScore, score))} 字节范儿 · {Math.max(bestPeaks, peaks)} 座高峰</p>
 
             <div className="modal-actions summary-actions">

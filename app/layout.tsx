@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "组织碰撞实验 · Doubao Dance",
-  description: "让灵感碰撞起来，在一次次组织调整中勇攀高峰。",
+  title: "合成大豆包 · Doubao Dance",
+  description: "让组织碰撞起来？在一次次组织调整中勇攀高峰。",
 };
 
 export const viewport: Viewport = {
