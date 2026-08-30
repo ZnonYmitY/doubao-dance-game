@@ -1,0 +1,52 @@
+import assert from "node:assert/strict";
+import { access, readFile } from "node:fs/promises";
+import test from "node:test";
+
+async function render() {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+
+  return worker.fetch(
+    new Request("http://localhost/", { headers: { accept: "text/html" } }),
+    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
+    { waitUntil() {}, passThroughOnException() {} },
+  );
+}
+
+test("server-renders the organization merge game", async () => {
+  const response = await render();
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+
+  const html = await response.text();
+  assert.match(html, /<title>组织碰撞实验 · Doubao Dance<\/title>/i);
+  assert.match(html, /组织碰撞实验/);
+  assert.match(html, /让灵感碰撞起来/);
+  assert.match(html, /字节范儿/);
+  assert.match(html, /勇攀高峰/);
+  assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
+});
+
+test("keeps gameplay, mobile input, and replaceable icon slots in source", async () => {
+  const [page, layout, packageJson, iconGuide] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../public/icons/README.md", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /const DANGER_DURATION = 2500/);
+  assert.match(page, /first\.level === MAX_LEVEL/);
+  assert.match(page, /peaksRef\.current \+= 1/);
+  assert.match(page, /peakCount \* height \* 0\.1/);
+  assert.match(page, /duration: 720/);
+  assert.match(page, /onPointerDown=\{handlePointerDown\}/);
+  assert.match(page, /onPointerUp=\{handlePointerUp\}/);
+  assert.match(page, /onKeyDown=\{handleKeyDown\}/);
+  assert.match(page, /本年度调整已完成/);
+  assert.match(layout, /viewportFit: "cover"/);
+  assert.doesNotMatch(packageJson, /react-loading-skeleton/);
+  assert.match(iconGuide, /level-07-doubao-dance\.png/);
+  await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
+});
