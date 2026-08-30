@@ -39,3 +39,6 @@ yarn-error.log*
 /outputs/
 /work/
 *.tsbuildinfo
+
+# Original downloaded icon exports are kept locally; optimized copies live in public/icons.
+/ChatGPT Image *.png

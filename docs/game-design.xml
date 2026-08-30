@@ -1,0 +1,154 @@
+<title>《组织碰撞实验》游戏策划案与字幕清单</title>
+
+<callout emoji="🕺" background-color="light-blue" border-color="blue">
+  <p><b>一句话概念：</b>把组织与产品图标做成一局“懂得都懂”的合成游戏；相同图标碰撞升级，两个 Doubao Dance 相遇后消失并升起一座高峰，最后以“字节范儿”和年度绩效收尾。</p>
+</callout>
+
+<p><b>当前版本：</b>V0.2（正式图标、山体文字与绩效结算已接入）</p>
+<bookmark name="打开当前游戏（私有链接）" href="https://doubao-dance-game.lucky-plum-7420.chatgpt.site"></bookmark>
+
+<h1>1. 产品定位</h1>
+<p><b>项目名：</b>组织碰撞实验</p>
+<p><b>核心字幕：</b>让灵感碰撞起来</p>
+<p><b>类型：</b>移动端优先的轻量物理合成游戏，玩法参考“合成大西瓜”，内容改编为组织与产品图标的逐级合成。</p>
+<p><b>情绪目标：</b>第一眼是轻量小游戏，玩到中后段才逐渐读出组织调整、工作、Dance 与“勇攀高峰”的内部梗；不在球体上显示名字，依靠图标顺序、碰撞字幕和结算文案完成表达。</p>
+
+<h1>2. 核心玩法与一局流程</h1>
+<ol>
+  <li seq="auto"><b>选位：</b>玩家左右拖动待投放图标，松手后落下；桌面端也支持方向键与空格。</li>
+  <li seq="auto"><b>碰撞：</b>两个相同图标接触，合成为下一级图标，并累计一次“组织调整”。</li>
+  <li seq="auto"><b>升级：</b>合成链依次为 Mira → AIME → Coze → 飞书 → 豆包工作 → 豆包 → Doubao Dance。</li>
+  <li seq="auto"><b>登峰：</b>两个最高级 Doubao Dance 相遇后同时消失，增加字节范儿并升起一座山峰。</li>
+  <li seq="auto"><b>加压：</b>每座山让底部约上升游戏区高度的 10%，有效空间持续缩小。</li>
+  <li seq="auto"><b>结束：</b>任意图标持续越过警戒线 2.5 秒，本年度调整结束并进入结算。</li>
+</ol>
+
+<h1>3. 合成等级与图标</h1>
+<table>
+  <colgroup><col width="60"/><col width="120"/><col width="130"/><col width="110"/><col width="220"/></colgroup>
+  <thead><tr><th background-color="light-blue">等级</th><th background-color="light-blue">名称</th><th background-color="light-blue">图标文件</th><th background-color="light-blue">合成得分</th><th background-color="light-blue">触发字幕</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Mira</td><td>level-01-mira.png</td><td>初始投放</td><td>无</td></tr>
+    <tr><td>2</td><td>AIME</td><td>level-02-aime.png</td><td>+4</td><td>无</td></tr>
+    <tr><td>3</td><td>Coze</td><td>level-03-coze.png</td><td>+8</td><td>无</td></tr>
+    <tr><td>4</td><td>飞书</td><td>level-04-feishu.png</td><td>+16</td><td>协作起来了</td></tr>
+    <tr><td>5</td><td>豆包工作</td><td>level-05-doubao-work.png</td><td>+32</td><td>开始认真工作</td></tr>
+    <tr><td>6</td><td>豆包</td><td>level-06-doubao.png</td><td>+64</td><td>豆包登场</td></tr>
+    <tr><td>7</td><td>Doubao Dance</td><td>level-07-doubao-dance.png</td><td>+128</td><td>豆包开始 Dance！</td></tr>
+    <tr><td>高峰</td><td>两个 Doubao Dance</td><td>相遇后消失</td><td>+300，之后每峰递增 80</td><td>勇攀高峰！</td></tr>
+  </tbody>
+</table>
+<p><b>初始投放概率：</b>Mira 4/7、AIME 2/7、Coze 1/7。图标越高级，体积越大；正式图标统一裁成圆形展示，保留白底或品牌底色，球体仍有高光、描边和阴影以维持物理感。</p>
+
+<h1>4. 高峰机制</h1>
+<p>两个 Doubao Dance 碰撞后爆开消失，山体从底部上升。每次目标高度增加约 10%，上升动画时长 720 毫秒，采用缓出效果，并辅以山脊高光、上升箭头、粒子和轻提示音。</p>
+<p><b>“勇 攀 高 峰”</b>四个字直接描边并写在山体靠上的区域，不再使用独立深色标签。第一座山升起时文字即可完整露出；后续山体继续抬升，文字随山体一起上移。山体总高度上限为游戏区约 44%，避免完全遮挡玩法。</p>
+
+<h1>5. 计分、统计与绩效</h1>
+<p><b>分数名：</b>字节范儿。</p>
+<p><b>本局统计：</b>组织架构调整次数、豆包 Dance 出现次数、攀登高峰数；历史最佳分数与高峰数保存在本地设备。</p>
+<table>
+  <colgroup><col width="80"/><col width="220"/><col width="260"/></colgroup>
+  <thead><tr><th background-color="light-purple">绩效</th><th background-color="light-purple">当前判定条件</th><th background-color="light-purple">设计意图</th></tr></thead>
+  <tbody>
+    <tr><td><b>E</b></td><td>高峰 ≥ 3，或字节范儿 ≥ 6000</td><td>顶级结算，优先展示</td></tr>
+    <tr><td><b>M+</b></td><td>高峰 ≥ 2，或字节范儿 ≥ 3800</td><td>高完成度</td></tr>
+    <tr><td><b>M</b></td><td>高峰 ≥ 1，或字节范儿 ≥ 1800</td><td>完成一次完整登峰</td></tr>
+    <tr><td><b>M-</b></td><td>出现过 Doubao Dance，或字节范儿 ≥ 700</td><td>已进入后半程</td></tr>
+    <tr><td><b>I</b></td><td>未达到以上条件</td><td>默认档位</td></tr>
+  </tbody>
+</table>
+<p>判定从 E 到 I 依次匹配；满足多个条件时取最高档。当前分档是玩法平衡初稿，后续可根据真实局数数据微调。</p>
+
+<h1>6. 交互与体验细节</h1>
+<ul>
+  <li><b>移动端：</b>触摸拖动选位、松手投放，适配安全区、窄屏和横屏；当前 390 像素宽视口无横向溢出。</li>
+  <li><b>桌面端：</b>鼠标拖放；左右方向键移动，空格投放。</li>
+  <li><b>投放节奏：</b>两次投放间隔 430 毫秒，避免误触连发。</li>
+  <li><b>危险提示：</b>越线后显示倒计时与进度条；设置弹窗、切后台或页面卡顿不会额外吞掉有效反应时间。</li>
+  <li><b>反馈：</b>合成、出现豆包、Dance 与登峰使用不同提示音和触感；均可在设置中关闭。</li>
+  <li><b>无障碍：</b>画布具备操作说明，主要按钮均有可读名称，键盘可完成投放。</li>
+</ul>
+
+<h1>7. 当前完整字幕清单</h1>
+<h2>7.1 首页与常驻界面</h2>
+<table>
+  <colgroup><col width="130"/><col width="220"/><col width="280"/></colgroup>
+  <thead><tr><th background-color="light-gray">位置</th><th background-color="light-gray">当前字幕</th><th background-color="light-gray">说明</th></tr></thead>
+  <tbody>
+    <tr><td>顶部眉题</td><td>ORGANIZATION LAB</td><td>实验感英文标识</td></tr>
+    <tr><td>主标题</td><td>组织碰撞实验</td><td>游戏名</td></tr>
+    <tr><td>副标题</td><td>让灵感碰撞起来</td><td>核心氛围字幕</td></tr>
+    <tr><td>数据卡</td><td>字节范儿 / 组织调整 / 勇攀高峰</td><td>本局三项统计</td></tr>
+    <tr><td>投放预告</td><td>下一个</td><td>同时显示下一个图标</td></tr>
+    <tr><td>纪录</td><td>最高 {分数}</td><td>本地历史最高分</td></tr>
+    <tr><td>新手引导</td><td>拖动位置，松手投放</td><td>首次投放前出现</td></tr>
+    <tr><td>新手引导</td><td>两个相同图标碰撞，即可完成一次调整</td><td>解释合成规则</td></tr>
+    <tr><td>警戒线</td><td>组织空间警戒线</td><td>画布内右侧标识</td></tr>
+    <tr><td>倒计时</td><td>空间预警 {秒数}s</td><td>越线时出现</td></tr>
+    <tr><td>山体</td><td>勇 攀 高 峰</td><td>直接嵌在山体上</td></tr>
+    <tr><td>底部说明</td><td>两个最高级图标相遇后消失，高峰升起，空间缩小</td><td>最高级规则</td></tr>
+    <tr><td>底部说明</td><td>持续越过警戒线 2.5 秒，本年度结束</td><td>结束规则</td></tr>
+  </tbody>
+</table>
+
+<h2>7.2 合成过程字幕</h2>
+<table>
+  <colgroup><col width="200"/><col width="240"/><col width="190"/></colgroup>
+  <thead><tr><th background-color="light-purple">触发时机</th><th background-color="light-purple">当前字幕</th><th background-color="light-purple">停留时间</th></tr></thead>
+  <tbody>
+    <tr><td>合成飞书</td><td>协作起来了</td><td>约 0.85 秒</td></tr>
+    <tr><td>合成豆包工作</td><td>开始认真工作</td><td>约 0.9 秒</td></tr>
+    <tr><td>合成豆包</td><td>豆包登场</td><td>约 0.9 秒</td></tr>
+    <tr><td>合成 Doubao Dance</td><td>豆包开始 Dance！</td><td>约 1.25 秒</td></tr>
+    <tr><td>两个 Doubao Dance 相遇</td><td>勇攀高峰！</td><td>约 1.45 秒</td></tr>
+  </tbody>
+</table>
+
+<h2>7.3 设置页字幕</h2>
+<ul>
+  <li>GAME SETTINGS / 调整说明</li>
+  <li>移动投放位置，松手让图标落下。</li>
+  <li>两个相同图标碰撞，合成下一级。</li>
+  <li>两个 Doubao Dance 消失，并升起一座高峰。</li>
+  <li>图标持续越过警戒线，本年度调整结束。</li>
+  <li>声音反馈 / 合成与高峰提示音</li>
+  <li>触感反馈 / 支持的移动设备生效</li>
+  <li>生成阶段总结 / 继续调整</li>
+</ul>
+
+<h2>7.4 结算页与分享字幕</h2>
+<ul>
+  <li>YOUR ANNUAL REVIEW</li>
+  <li>本年度调整已完成</li>
+  <li>本年度累计获得 {分数} 字节范儿</li>
+  <li>年度绩效 {E / M+ / M / M- / I}</li>
+  <li>按字节范儿与高峰数综合评定</li>
+  <li>经历了 {次数} 次组织架构调整</li>
+  <li>见证了 {次数} 次豆包 Dance</li>
+  <li>攀登了 {数量} 座高峰</li>
+  <li>历史最佳：{分数} 字节范儿 · {数量} 座高峰</li>
+  <li>分享年度总结 / 已复制 / 开启下一年度</li>
+</ul>
+<p><b>动态评语：</b>组织仍有较大的调整空间；完成调整，开始登山；持续突破组织边界；高峰之上，还有高峰；你的字节范儿已经溢出了。</p>
+<blockquote>我的组织碰撞年度总结：获得 {分数} 字节范儿，经历 {次数} 次组织架构调整，见证 {次数} 次豆包 Dance，攀登 {数量} 座高峰，绩效 {档位}。{动态评语}！</blockquote>
+
+<h1>8. 视觉规范</h1>
+<p><b>主色：</b>深字节蓝、亮蓝、青色与玫红；背景保持冷白和淡蓝紫渐变，卡片以高圆角、细描边和轻阴影呈现。</p>
+<p><b>游戏区：</b>浅色网格模拟组织图纸；警戒线使用低饱和玫红；山体采用蓝—紫—玫红渐变，与顶栏和品牌感保持统一。</p>
+<p><b>图标：</b>不显示名称，以品牌图形承担识别；Mira、AIME、Coze、飞书、豆包工作、豆包和 Doubao Dance 均使用用户提供的正式图片。Doubao Dance 采用改名后的字标图，并在最高级球体中保留深色底以增强终点感。</p>
+
+<h1>9. 当前完成状态与后续项</h1>
+<checkbox done="true">完整合成链、物理碰撞、计分和结束条件</checkbox>
+<checkbox done="true">两个 Doubao Dance 消失并升峰</checkbox>
+<checkbox done="true">每峰约上升 10%，首峰露出“勇 攀 高 峰”</checkbox>
+<checkbox done="true">7 个正式图标接入并提供失败回退</checkbox>
+<checkbox done="true">年度绩效 E、M+、M、M-、I</checkbox>
+<checkbox done="true">移动端、桌面端、横屏和键盘适配</checkbox>
+<checkbox done="false">继续优化合成过程字幕与年度评语</checkbox>
+<checkbox done="false">积累真实局数后微调绩效阈值与高级图标碰撞半径</checkbox>
+<checkbox done="false">对外传播前补充必要的趣味创作说明与品牌素材使用确认</checkbox>
+
+<callout emoji="📝" background-color="light-yellow" border-color="yellow">
+  <p><b>字幕优化建议：</b>优先保留“协作起来了 → 开始认真工作 → 豆包登场 → 豆包开始 Dance！ → 勇攀高峰！”这一条递进链。后续若要增加梗，建议只替换这五句和五条结算动态评语，避免在主界面继续堆字。</p>
+</callout>

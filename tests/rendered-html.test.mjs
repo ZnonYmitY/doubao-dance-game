@@ -28,7 +28,7 @@ test("server-renders the organization merge game", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
 });
 
-test("keeps gameplay, mobile input, and replaceable icon slots in source", async () => {
+test("keeps gameplay, mobile input, annual review, and final icons in source", async () => {
   const [page, layout, packageJson, iconGuide] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
@@ -45,8 +45,21 @@ test("keeps gameplay, mobile input, and replaceable icon slots in source", async
   assert.match(page, /onPointerUp=\{handlePointerUp\}/);
   assert.match(page, /onKeyDown=\{handleKeyDown\}/);
   assert.match(page, /本年度调整已完成/);
+  assert.match(page, /年度绩效/);
+  assert.match(page, /getPerformanceRating/);
+  assert.match(page, /context\.strokeText\("勇 攀 高 峰"/);
+  assert.doesNotMatch(page, /图标槽位已预留/);
   assert.match(layout, /viewportFit: "cover"/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(iconGuide, /level-07-doubao-dance\.png/);
+  await Promise.all([
+    "level-01-mira.png",
+    "level-02-aime.png",
+    "level-03-coze.png",
+    "level-04-feishu.png",
+    "level-05-doubao-work.png",
+    "level-06-doubao.png",
+    "level-07-doubao-dance.png",
+  ].map((filename) => access(new URL(`../public/icons/${filename}`, import.meta.url))));
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });

@@ -86,25 +86,24 @@ function writeLocalValue(key: string, value: string) {
 
 function LevelBadge({ levelIndex, compact = false }: { levelIndex: number; compact?: boolean }) {
   const level = LEVELS[levelIndex];
-  const [hasImage, setHasImage] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  const hasImage = !imageFailed;
 
   return (
     <span
-      className={`level-badge${compact ? " is-compact" : ""}`}
+      className={`level-badge level-${levelIndex}${compact ? " is-compact" : ""}${hasImage ? " has-image" : ""}`}
       style={{ "--level-color": level.color, "--level-accent": level.accent } as CSSProperties}
       aria-label={level.name}
       title={level.name}
     >
-      {!hasImage && <span aria-hidden="true">{level.symbol}</span>}
+      {imageFailed && <span aria-hidden="true">{level.symbol}</span>}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         className={hasImage ? "is-visible" : ""}
         src={level.icon}
         alt=""
-        onLoad={(event) => {
-          if (event.currentTarget.naturalWidth > 4) setHasImage(true);
-        }}
-        onError={() => setHasImage(false)}
+        onLoad={() => setImageFailed(false)}
+        onError={() => setImageFailed(true)}
       />
     </span>
   );
@@ -120,6 +119,14 @@ function getSummaryLine(peaks: number) {
   if (peaks >= 2) return "持续突破组织边界";
   if (peaks === 1) return "完成调整，开始登山";
   return "组织仍有较大的调整空间";
+}
+
+function getPerformanceRating(score: number, peaks: number, dances: number) {
+  if (peaks >= 3 || score >= 6000) return "E";
+  if (peaks >= 2 || score >= 3800) return "M+";
+  if (peaks >= 1 || score >= 1800) return "M";
+  if (dances >= 1 || score >= 700) return "M-";
+  return "I";
 }
 
 export default function Home() {
@@ -528,6 +535,8 @@ export default function Home() {
     const drawBall = (ball: Ball) => {
       const radius = levelRadius(ball.level);
       const level = LEVELS[ball.level];
+      const icon = iconsRef.current[ball.level];
+      const hasIcon = Boolean(icon && icon.complete && icon.naturalWidth > 4);
       context.save();
       context.shadowColor = "rgba(17, 27, 67, .2)";
       context.shadowBlur = Math.max(7, radius * 0.2);
@@ -543,7 +552,7 @@ export default function Home() {
       gradient.addColorStop(0, "#ffffff");
       gradient.addColorStop(0.1, level.color);
       gradient.addColorStop(1, level.accent);
-      context.fillStyle = gradient;
+      context.fillStyle = hasIcon && ball.level !== MAX_LEVEL ? "#ffffff" : gradient;
       context.beginPath();
       context.arc(ball.x, ball.y, radius, 0, Math.PI * 2);
       context.fill();
@@ -552,13 +561,12 @@ export default function Home() {
       context.strokeStyle = "rgba(255,255,255,.84)";
       context.stroke();
 
-      const icon = iconsRef.current[ball.level];
-      if (icon && icon.complete && icon.naturalWidth > 4) {
+      if (hasIcon && icon) {
         context.save();
         context.beginPath();
-        context.arc(ball.x, ball.y, radius * 0.78, 0, Math.PI * 2);
+        context.arc(ball.x, ball.y, radius * 0.91, 0, Math.PI * 2);
         context.clip();
-        const size = radius * 1.56;
+        const size = radius * (ball.level === MAX_LEVEL ? 2 : 1.92);
         context.drawImage(icon, ball.x - size / 2, ball.y - size / 2, size, size);
         context.restore();
       } else {
@@ -590,17 +598,18 @@ export default function Home() {
       context.fillStyle = gradient;
       context.fill();
 
-      const labelY = Math.min(height - 19, top + Math.max(18, Math.min(30, rise * 0.32)));
-      const labelWidth = Math.min(150, width * 0.46);
-      context.fillStyle = "rgba(12, 24, 59, .78)";
-      context.beginPath();
-      context.roundRect(width / 2 - labelWidth / 2, labelY - 15, labelWidth, 30, 15);
-      context.fill();
-      context.fillStyle = "white";
+      const labelY = Math.min(height - 18, top + Math.max(20, Math.min(36, rise * 0.38)));
       context.font = `800 ${Math.min(16, width * 0.04)}px "PingFang SC", sans-serif`;
       context.textAlign = "center";
       context.textBaseline = "middle";
+      context.lineWidth = 3;
+      context.strokeStyle = "rgba(14, 31, 83, .5)";
+      context.shadowColor = "rgba(10, 28, 80, .3)";
+      context.shadowBlur = 7;
+      context.strokeText("勇 攀 高 峰", width / 2, labelY + 1);
+      context.fillStyle = "white";
       context.fillText("勇 攀 高 峰", width / 2, labelY + 1);
+      context.shadowColor = "transparent";
 
       const animation = mountainAnimationRef.current;
       if (animation) {
@@ -932,7 +941,8 @@ export default function Home() {
   };
 
   const shareSummary = async () => {
-    const text = `我的组织碰撞年度总结：获得 ${formatNumber(score)} 字节范儿，经历 ${adjustments} 次组织架构调整，见证 ${dances} 次豆包 Dance，攀登 ${peaks} 座高峰。${getSummaryLine(peaks)}！`;
+    const rating = getPerformanceRating(score, peaks, dances);
+    const text = `我的组织碰撞年度总结：获得 ${formatNumber(score)} 字节范儿，经历 ${adjustments} 次组织架构调整，见证 ${dances} 次豆包 Dance，攀登 ${peaks} 座高峰，绩效 ${rating}。${getSummaryLine(peaks)}！`;
     try {
       if (navigator.share) {
         await navigator.share({ title: "组织碰撞年度总结", text });
@@ -1028,7 +1038,7 @@ export default function Home() {
 
       <div className="game-footer">
         <p>两个最高级图标相遇后消失，高峰升起，空间缩小</p>
-        <span>图标槽位已预留</span>
+        <span>持续越过警戒线 2.5 秒，本年度结束</span>
       </div>
 
       {settingsOpen && (
@@ -1077,6 +1087,12 @@ export default function Home() {
             <p className="summary-lead">本年度累计获得</p>
             <strong className="summary-score">{formatNumber(score)}</strong>
             <span className="summary-unit">字节范儿</span>
+
+            <div className="performance-result">
+              <span>年度绩效</span>
+              <strong>{getPerformanceRating(score, peaks, dances)}</strong>
+              <small>按字节范儿与高峰数综合评定</small>
+            </div>
 
             <div className="summary-grid">
               <div><span>经历了</span><strong>{adjustments}</strong><small>次组织架构调整</small></div>
