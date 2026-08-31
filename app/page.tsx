@@ -1488,7 +1488,7 @@ export default function Home() {
             <div className="name-orbit" aria-hidden="true"><i>榜</i></div>
             <p className="summary-kicker">WELCOME TO THE LAB</p>
             <h2 id="username-title">先取一个花名</h2>
-            <p className="username-intro">参考阿里花名习惯：2–3 个汉字、积极得体、全服不重名。</p>
+            <p className="username-intro">2–3 个汉字、积极得体、全服不重名。</p>
             <label htmlFor="username-input">花名</label>
             <input
               id="username-input"
