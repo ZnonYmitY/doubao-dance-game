@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type FormEvent,
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
@@ -51,6 +52,16 @@ type MountainAnimation = {
   duration: number;
 };
 
+type LeaderboardEntry = {
+  rank: number;
+  username: string;
+  score: number;
+  peaks: number;
+  adjustments: number;
+  dances: number;
+  rating: string;
+};
+
 const LEVELS: Level[] = [
   { name: "Mira", key: "mira", color: "#20d8ff", accent: "#127cfe", radius: 19, score: 2, symbol: "✦", icon: "/icons/level-01-mira.png" },
   { name: "AIME", key: "aime", color: "#7259ff", accent: "#4b32c5", radius: 24, score: 4, symbol: "◆", icon: "/icons/level-02-aime.png" },
@@ -82,6 +93,15 @@ function writeLocalValue(key: string, value: string) {
   } catch {
     // Storage can be unavailable in private or restricted browsing contexts.
   }
+}
+
+function createPlayerId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `player-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function normalizeUsername(value: string) {
+  return value.trim().replace(/\s+/g, " ");
 }
 
 function LevelBadge({ levelIndex, compact = false }: { levelIndex: number; compact?: boolean }) {
@@ -177,10 +197,12 @@ export default function Home() {
   const mountainAnimationRef = useRef<MountainAnimation | null>(null);
   const lastDangerUiRef = useRef(0);
   const activePointerIdRef = useRef<number | null>(null);
-  const pausedRef = useRef(false);
+  const pausedRef = useRef(true);
   const gameOverRef = useRef(false);
   const soundEnabledRef = useRef(true);
   const vibrationEnabledRef = useRef(true);
+  const usernameRef = useRef("");
+  const playerIdRef = useRef("");
   const audioContextRef = useRef<AudioContext | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const idleDropTimersRef = useRef<Set<number>>(new Set());
@@ -204,6 +226,16 @@ export default function Home() {
   const [dangerProgress, setDangerProgress] = useState(0);
   const [toast, setToast] = useState("");
   const [summaryCopied, setSummaryCopied] = useState(false);
+  const [profileReady, setProfileReady] = useState(false);
+  const [username, setUsername] = useState("");
+  const [usernameDraft, setUsernameDraft] = useState("");
+  const [usernameError, setUsernameError] = useState("");
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState("");
+  const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
+  const [myRank, setMyRank] = useState<number | null>(null);
+  const [scoreSyncState, setScoreSyncState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const syncScore = useCallback((delta: number) => {
     scoreRef.current += delta;
@@ -279,6 +311,49 @@ export default function Home() {
     }
   }, []);
 
+  const loadLeaderboard = useCallback(async () => {
+    setLeaderboardLoading(true);
+    setLeaderboardError("");
+    try {
+      const response = await fetch("/api/leaderboard", { cache: "no-store" });
+      const data = await response.json() as { entries?: LeaderboardEntry[]; error?: string };
+      if (!response.ok || !data.entries) throw new Error(data.error || "排行榜暂时不可用");
+      setLeaderboardEntries(data.entries);
+    } catch (error) {
+      setLeaderboardError(error instanceof Error ? error.message : "排行榜暂时不可用");
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  }, []);
+
+  const submitResult = useCallback(async (result: {
+    score: number;
+    adjustments: number;
+    peaks: number;
+    dances: number;
+  }) => {
+    if (!usernameRef.current || !playerIdRef.current) return;
+    setScoreSyncState("saving");
+    try {
+      const response = await fetch("/api/leaderboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          playerId: playerIdRef.current,
+          username: usernameRef.current,
+          ...result,
+        }),
+      });
+      const data = await response.json() as { entries?: LeaderboardEntry[]; rank?: number | null; error?: string };
+      if (!response.ok || !data.entries) throw new Error(data.error || "成绩提交失败");
+      setLeaderboardEntries(data.entries);
+      setMyRank(data.rank ?? null);
+      setScoreSyncState("saved");
+    } catch {
+      setScoreSyncState("error");
+    }
+  }, []);
+
   const endGame = useCallback(() => {
     if (gameOverRef.current) return;
     gameOverRef.current = true;
@@ -293,10 +368,16 @@ export default function Home() {
     setBestPeaks(newBestPeaks);
     writeLocalValue("doubao-dance-best-score", String(newBestScore));
     writeLocalValue("doubao-dance-best-peaks", String(newBestPeaks));
+    void submitResult({
+      score: scoreRef.current,
+      adjustments: adjustmentsRef.current,
+      peaks: peaksRef.current,
+      dances: dancesRef.current,
+    });
     vibrate([70, 45, 110]);
     playTone(230, 0.18, 0, 0.028);
     playTone(175, 0.28, 0.14, 0.024);
-  }, [bestPeaks, bestScore, playTone, vibrate]);
+  }, [bestPeaks, bestScore, playTone, submitResult, vibrate]);
 
   const resetGame = useCallback(() => {
     idleDropTimersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -334,6 +415,8 @@ export default function Home() {
     setGameOver(false);
     setSettingsOpen(false);
     setSummaryCopied(false);
+    setMyRank(null);
+    setScoreSyncState("idle");
     setToast("");
   }, []);
 
@@ -433,6 +516,8 @@ export default function Home() {
     const storedVibration = readLocalValue("doubao-dance-vibration") !== "off";
     const storedBestScore = Number(readLocalValue("doubao-dance-best-score") || 0);
     const storedBestPeaks = Number(readLocalValue("doubao-dance-best-peaks") || 0);
+    const storedUsername = normalizeUsername(readLocalValue("doubao-dance-username") || "");
+    const storedPlayerId = readLocalValue("doubao-dance-player-id") || createPlayerId();
     const first = pickDropLevel();
     const next = pickDropLevel();
     const hydrationFrame = window.requestAnimationFrame(() => {
@@ -445,6 +530,13 @@ export default function Home() {
       setBestScore(storedBestScore);
       setBestPeaks(storedBestPeaks);
       setNextLevel(next);
+      usernameRef.current = storedUsername;
+      playerIdRef.current = storedPlayerId;
+      setUsername(storedUsername);
+      setUsernameDraft(storedUsername);
+      setProfileReady(true);
+      pausedRef.current = !storedUsername;
+      writeLocalValue("doubao-dance-player-id", storedPlayerId);
     });
 
     iconsRef.current = LEVELS.map((level, index) => {
@@ -1015,6 +1107,37 @@ export default function Home() {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
+  const saveUsername = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const nextUsername = normalizeUsername(usernameDraft);
+    const length = Array.from(nextUsername).length;
+    if (length < 2 || length > 12 || /[<>\p{C}]/u.test(nextUsername)) {
+      setUsernameError("请输入 2–12 个字符，不能包含特殊控制符");
+      return;
+    }
+    usernameRef.current = nextUsername;
+    setUsername(nextUsername);
+    setUsernameDraft(nextUsername);
+    setUsernameError("");
+    writeLocalValue("doubao-dance-username", nextUsername);
+    lastFrameRef.current = performance.now();
+    pausedRef.current = false;
+  };
+
+  const openLeaderboard = () => {
+    pausedRef.current = true;
+    setLeaderboardOpen(true);
+    void loadLeaderboard();
+  };
+
+  const closeLeaderboard = () => {
+    setLeaderboardOpen(false);
+    if (!gameOverRef.current && usernameRef.current) {
+      lastFrameRef.current = performance.now();
+      pausedRef.current = false;
+    }
+  };
+
   const openSettings = () => {
     pausedRef.current = true;
     setSettingsOpen(true);
@@ -1022,7 +1145,7 @@ export default function Home() {
 
   const closeSettings = () => {
     setSettingsOpen(false);
-    if (!gameOverRef.current) {
+    if (!gameOverRef.current && usernameRef.current) {
       lastFrameRef.current = performance.now();
       pausedRef.current = false;
     }
@@ -1057,11 +1180,16 @@ export default function Home() {
         <div className="title-group">
           <p className="eyebrow">ORGANIZATION LAB</p>
           <h1>合成大豆包</h1>
-          <p className="subtitle">让组织碰撞起来？</p>
+          <p className="subtitle">{username ? `@${username} · 让组织碰撞起来？` : "让组织碰撞起来？"}</p>
         </div>
-        <button className="icon-button" type="button" onClick={openSettings} aria-label="打开游戏设置">
-          <span /><span /><span />
-        </button>
+        <div className="header-actions">
+          <button className="rank-button" type="button" onClick={openLeaderboard} aria-label="查看排行榜">
+            <b>榜</b><span>排行</span>
+          </button>
+          <button className="icon-button" type="button" onClick={openSettings} aria-label="打开游戏设置">
+            <span /><span /><span />
+          </button>
+        </div>
       </header>
 
       <section className="score-row" aria-label="本局数据">
@@ -1135,6 +1263,77 @@ export default function Home() {
         <span>持续越过警戒线 2.5 秒，本年度结束</span>
       </div>
 
+      {profileReady && !username && (
+        <div className="modal-backdrop username-backdrop">
+          <form className="modal username-modal" onSubmit={saveUsername} aria-labelledby="username-title">
+            <div className="name-orbit" aria-hidden="true"><i>榜</i></div>
+            <p className="summary-kicker">WELCOME TO THE LAB</p>
+            <h2 id="username-title">先取一个组织花名</h2>
+            <p className="username-intro">这个名字会随你的最高成绩进入全服排行榜。</p>
+            <label htmlFor="username-input">用户名</label>
+            <input
+              id="username-input"
+              value={usernameDraft}
+              onChange={(event) => {
+                setUsernameDraft(event.target.value);
+                if (usernameError) setUsernameError("");
+              }}
+              maxLength={12}
+              placeholder="输入 2–12 个字符"
+              autoComplete="nickname"
+            />
+            <div className="username-meta">
+              <span className={usernameError ? "is-error" : ""}>{usernameError || "填写后即可开始本年度调整"}</span>
+              <b>{Array.from(usernameDraft).length}/12</b>
+            </div>
+            <button className="primary-button username-submit" type="submit">以此花名入职</button>
+          </form>
+        </div>
+      )}
+
+      {leaderboardOpen && (
+        <div className="modal-backdrop leaderboard-backdrop" role="presentation" onPointerDown={(event) => {
+          if (event.target === event.currentTarget) closeLeaderboard();
+        }}>
+          <section className="modal leaderboard-modal" role="dialog" aria-modal="true" aria-labelledby="leaderboard-title">
+            <div className="modal-heading leaderboard-heading">
+              <div>
+                <p className="eyebrow">BYTE STYLE RANKING</p>
+                <h2 id="leaderboard-title">字节范儿排行榜</h2>
+                <p>按个人历史最高分排名 · TOP 50</p>
+              </div>
+              <button className="close-button" type="button" onClick={closeLeaderboard} aria-label="关闭排行榜">×</button>
+            </div>
+
+            {leaderboardLoading && <div className="leaderboard-state">正在同步组织战绩…</div>}
+            {!leaderboardLoading && leaderboardError && (
+              <div className="leaderboard-state is-error">
+                <span>{leaderboardError}</span>
+                <button className="secondary-button" type="button" onClick={() => void loadLeaderboard()}>重新加载</button>
+              </div>
+            )}
+            {!leaderboardLoading && !leaderboardError && leaderboardEntries.length === 0 && (
+              <div className="leaderboard-state">还没有人完成年度总结，第一名等你来拿。</div>
+            )}
+            {!leaderboardLoading && !leaderboardError && leaderboardEntries.length > 0 && (
+              <ol className="leaderboard-list">
+                {leaderboardEntries.map((entry) => (
+                  <li key={`${entry.rank}-${entry.username}`} className={entry.username === username ? "is-me" : ""}>
+                    <span className={`rank-number rank-${entry.rank}`}>{entry.rank <= 3 ? ["🥇", "🥈", "🥉"][entry.rank - 1] : entry.rank}</span>
+                    <span className="leaderboard-user">
+                      <b>{entry.username}{entry.username === username ? " · 我" : ""}</b>
+                      <small>{entry.peaks} 座高峰 · {entry.adjustments} 次调整</small>
+                    </span>
+                    <span className="leaderboard-score"><b>{formatNumber(entry.score)}</b><small>字节范儿</small></span>
+                    <span className="rating-pill">{entry.rating}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        </div>
+      )}
+
       {settingsOpen && (
         <div className="modal-backdrop" role="presentation" onPointerDown={(event) => {
           if (event.target === event.currentTarget) closeSettings();
@@ -1172,7 +1371,7 @@ export default function Home() {
         </div>
       )}
 
-      {gameOver && (
+      {gameOver && !leaderboardOpen && (
         <div className="modal-backdrop summary-backdrop">
           <section className="modal summary-card" role="dialog" aria-modal="true" aria-labelledby="summary-title">
             <div className="summary-ribbons" aria-hidden="true"><i /><i /><i /><i /><i /></div>
@@ -1197,7 +1396,16 @@ export default function Home() {
             <blockquote>{getSummaryLine(score, peaks, dances)}</blockquote>
             <p className="best-line">历史最佳：{formatNumber(Math.max(bestScore, score))} 字节范儿 · {Math.max(bestPeaks, peaks)} 座高峰</p>
 
+            <div className={`rank-result is-${scoreSyncState}`} role="status">
+              {scoreSyncState === "saving" && "正在同步全服排名…"}
+              {scoreSyncState === "saved" && myRank && <>本次更新后位列 <strong>全服第 {myRank} 名</strong></>}
+              {scoreSyncState === "saved" && !myRank && "成绩已计入排行榜"}
+              {scoreSyncState === "error" && "成绩暂未同步，可稍后重新挑战"}
+              {scoreSyncState === "idle" && "准备同步全服排名"}
+            </div>
+
             <div className="modal-actions summary-actions">
+              <button className="ranking-cta" type="button" onClick={openLeaderboard}>查看字节范儿排行榜</button>
               <button className="secondary-button" type="button" onClick={shareSummary}>{summaryCopied ? "已复制" : "分享年度总结"}</button>
               <button className="primary-button" type="button" onClick={resetGame}>开启下一年度</button>
             </div>

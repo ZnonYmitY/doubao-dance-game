@@ -69,3 +69,25 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   ].map((filename) => access(new URL(`../public/icons/${filename}`, import.meta.url))));
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
+
+test("keeps first-entry username and shared leaderboard capability", async () => {
+  const [page, route, schema, migration, hosting] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/leaderboard/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0000_stiff_medusa.sql", import.meta.url), "utf8"),
+    readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /先取一个组织花名/);
+  assert.match(page, /doubao-dance-username/);
+  assert.match(page, /\/api\/leaderboard/);
+  assert.match(page, /字节范儿排行榜/);
+  assert.match(page, /全服第 \{myRank\} 名/);
+  assert.match(route, /ON CONFLICT\(player_id\) DO UPDATE/);
+  assert.match(route, /LIMIT 50/);
+  assert.match(schema, /idx_leaderboard_ranking/);
+  assert.match(migration, /CREATE TABLE `leaderboard_entries`/);
+  assert.match(migration, /PRAGMA optimize/);
+  assert.equal(JSON.parse(hosting).d1, "DB");
+});
