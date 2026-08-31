@@ -30,10 +30,13 @@ function json(data: unknown, status = 200) {
 
 function normalizeUsername(value: unknown) {
   if (typeof value !== "string") return null;
-  const username = value.trim().replace(/\s+/g, " ");
-  const length = Array.from(username).length;
-  if (length < 2 || length > 12 || /[<>\p{C}]/u.test(username)) return null;
+  const username = value.trim();
+  if (!/^[\p{Script=Han}]{2,3}$/u.test(username)) return null;
   return username;
+}
+
+function readPlayerId(value: unknown) {
+  return typeof value === "string" && /^[a-zA-Z0-9-]{16,64}$/.test(value) ? value : null;
 }
 
 function readInteger(value: unknown, max: number) {
@@ -61,6 +64,7 @@ async function readTopEntries(db: D1Database) {
       performance_rating AS rating,
       updated_at AS updatedAt
     FROM leaderboard_entries
+    WHERE best_score > 0
     ORDER BY best_score DESC, best_peaks DESC, best_dances DESC, updated_at ASC
     LIMIT 50
   `).all<LeaderboardRow>();
@@ -70,6 +74,9 @@ async function readTopEntries(db: D1Database) {
 
 function routeError(error: unknown) {
   const message = error instanceof Error ? error.message : "Unexpected error";
+  if (message.includes("UNIQUE constraint failed") && message.includes("username")) {
+    return json({ error: "这个花名已经有人使用，请换一个。" }, 409);
+  }
   if (message.includes("no such table") || message.includes("leaderboard_entries")) {
     return json({ error: "排行榜正在初始化，请稍后再试。" }, 503);
   }
@@ -84,12 +91,31 @@ export async function GET() {
   }
 }
 
+export async function PUT(request: Request) {
+  try {
+    const payload = (await request.json()) as ScorePayload;
+    const playerId = readPlayerId(payload.playerId);
+    const username = normalizeUsername(payload.username);
+    if (!playerId || !username) {
+      return json({ error: "花名需为 2–3 个汉字。" }, 400);
+    }
+
+    await getD1().prepare(`
+      INSERT INTO leaderboard_entries (player_id, username, updated_at)
+      VALUES (?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(player_id) DO UPDATE SET username = excluded.username
+    `).bind(playerId, username).run();
+
+    return json({ username }, 201);
+  } catch (error) {
+    return routeError(error);
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const payload = (await request.json()) as ScorePayload;
-    const playerId = typeof payload.playerId === "string" && /^[a-zA-Z0-9-]{16,64}$/.test(payload.playerId)
-      ? payload.playerId
-      : null;
+    const playerId = readPlayerId(payload.playerId);
     const username = normalizeUsername(payload.username);
     const score = readInteger(payload.score, 1_000_000);
     const adjustments = readInteger(payload.adjustments, 10_000);
@@ -150,9 +176,11 @@ export async function POST(request: Request) {
       ? await db.prepare(`
           SELECT COUNT(*) + 1 AS rank
           FROM leaderboard_entries
-          WHERE best_score > ?
+          WHERE best_score > 0 AND (
+                best_score > ?
              OR (best_score = ? AND best_peaks > ?)
              OR (best_score = ? AND best_peaks = ? AND best_dances > ?)
+          )
         `).bind(current.score, current.score, current.peaks, current.score, current.peaks, current.dances).first<{ rank: number }>()
       : null;
 

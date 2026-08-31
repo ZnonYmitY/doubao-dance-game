@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const leaderboardEntries = sqliteTable(
   "leaderboard_entries",
@@ -14,6 +14,7 @@ export const leaderboardEntries = sqliteTable(
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => [
+    uniqueIndex("idx_leaderboard_username_unique").on(table.username),
     index("idx_leaderboard_ranking").on(
       table.bestScore,
       table.bestPeaks,

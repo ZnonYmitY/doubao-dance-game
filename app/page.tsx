@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
+import QRCode from "qrcode";
 
 type Level = {
   name: string;
@@ -101,7 +102,11 @@ function createPlayerId() {
 }
 
 function normalizeUsername(value: string) {
-  return value.trim().replace(/\s+/g, " ");
+  return value.trim();
+}
+
+function isValidAlias(value: string) {
+  return /^[\p{Script=Han}]{2,3}$/u.test(normalizeUsername(value));
 }
 
 function LevelBadge({ levelIndex, compact = false }: { levelIndex: number; compact?: boolean }) {
@@ -225,17 +230,18 @@ export default function Home() {
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
   const [dangerProgress, setDangerProgress] = useState(0);
   const [toast, setToast] = useState("");
-  const [summaryCopied, setSummaryCopied] = useState(false);
   const [profileReady, setProfileReady] = useState(false);
   const [username, setUsername] = useState("");
   const [usernameDraft, setUsernameDraft] = useState("");
   const [usernameError, setUsernameError] = useState("");
+  const [usernameSaving, setUsernameSaving] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [leaderboardError, setLeaderboardError] = useState("");
   const [leaderboardEntries, setLeaderboardEntries] = useState<LeaderboardEntry[]>([]);
   const [myRank, setMyRank] = useState<number | null>(null);
   const [scoreSyncState, setScoreSyncState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [shareState, setShareState] = useState<"idle" | "creating" | "done" | "error">("idle");
 
   const syncScore = useCallback((delta: number) => {
     scoreRef.current += delta;
@@ -323,6 +329,20 @@ export default function Home() {
       setLeaderboardError(error instanceof Error ? error.message : "排行榜暂时不可用");
     } finally {
       setLeaderboardLoading(false);
+    }
+  }, []);
+
+  const claimAlias = useCallback(async (playerId: string, alias: string) => {
+    try {
+      const response = await fetch("/api/leaderboard", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId, username: alias }),
+      });
+      const data = await response.json() as { username?: string; error?: string };
+      return { ok: response.ok, status: response.status, error: data.error || "花名登记失败" };
+    } catch {
+      return { ok: false, status: 0, error: "网络开小差了，请稍后再试" };
     }
   }, []);
 
@@ -414,7 +434,7 @@ export default function Home() {
     setStarted(false);
     setGameOver(false);
     setSettingsOpen(false);
-    setSummaryCopied(false);
+    setShareState("idle");
     setMyRank(null);
     setScoreSyncState("idle");
     setToast("");
@@ -517,6 +537,7 @@ export default function Home() {
     const storedBestScore = Number(readLocalValue("doubao-dance-best-score") || 0);
     const storedBestPeaks = Number(readLocalValue("doubao-dance-best-peaks") || 0);
     const storedUsername = normalizeUsername(readLocalValue("doubao-dance-username") || "");
+    const storedAliasIsValid = isValidAlias(storedUsername);
     const storedPlayerId = readLocalValue("doubao-dance-player-id") || createPlayerId();
     const first = pickDropLevel();
     const next = pickDropLevel();
@@ -530,13 +551,24 @@ export default function Home() {
       setBestScore(storedBestScore);
       setBestPeaks(storedBestPeaks);
       setNextLevel(next);
-      usernameRef.current = storedUsername;
+      usernameRef.current = storedAliasIsValid ? storedUsername : "";
       playerIdRef.current = storedPlayerId;
-      setUsername(storedUsername);
-      setUsernameDraft(storedUsername);
+      setUsername(storedAliasIsValid ? storedUsername : "");
+      setUsernameDraft(storedAliasIsValid ? storedUsername : "");
       setProfileReady(true);
-      pausedRef.current = !storedUsername;
+      pausedRef.current = !storedAliasIsValid;
       writeLocalValue("doubao-dance-player-id", storedPlayerId);
+      if (storedAliasIsValid) {
+        void claimAlias(storedPlayerId, storedUsername).then((result) => {
+          if (result.status !== 409) return;
+          usernameRef.current = "";
+          pausedRef.current = true;
+          setUsername("");
+          setUsernameDraft("");
+          setUsernameError(result.error);
+          writeLocalValue("doubao-dance-username", "");
+        });
+      }
     });
 
     iconsRef.current = LEVELS.map((level, index) => {
@@ -554,7 +586,7 @@ export default function Home() {
       idleDropTimers.clear();
       audioContextRef.current?.close().catch(() => undefined);
     };
-  }, []);
+  }, [claimAlias]);
 
   useEffect(() => {
     const board = boardRef.current;
@@ -1107,12 +1139,18 @@ export default function Home() {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
-  const saveUsername = (event: FormEvent<HTMLFormElement>) => {
+  const saveUsername = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextUsername = normalizeUsername(usernameDraft);
-    const length = Array.from(nextUsername).length;
-    if (length < 2 || length > 12 || /[<>\p{C}]/u.test(nextUsername)) {
-      setUsernameError("请输入 2–12 个字符，不能包含特殊控制符");
+    if (!isValidAlias(nextUsername)) {
+      setUsernameError("花名需为 2–3 个汉字");
+      return;
+    }
+    setUsernameSaving(true);
+    const result = await claimAlias(playerIdRef.current, nextUsername);
+    setUsernameSaving(false);
+    if (!result.ok) {
+      setUsernameError(result.error);
       return;
     }
     usernameRef.current = nextUsername;
@@ -1159,17 +1197,198 @@ export default function Home() {
 
   const shareSummary = async () => {
     const rating = getPerformanceRating(score, peaks, dances);
-    const text = `我的合成大豆包年度总结：获得 ${formatNumber(score)} 字节范儿，经历 ${adjustments} 次组织架构调整，攀登 ${peaks} 座高峰，绩效 ${rating}。${getSummaryLine(score, peaks, dances)}！`;
+    const gameUrl = `${window.location.origin}/`;
+    const text = `我的合成大豆包年度总结：获得 ${formatNumber(score)} 字节范儿，经历 ${adjustments} 次组织架构调整，攀登 ${peaks} 座高峰，绩效 ${rating}。${getSummaryLine(score, peaks, dances)}！扫码或打开 ${gameUrl}`;
+    setShareState("creating");
     try {
-      if (navigator.share) {
-        await navigator.share({ title: "合成大豆包年度总结", text });
-      } else {
-        await navigator.clipboard.writeText(text);
-        setSummaryCopied(true);
-        window.setTimeout(() => setSummaryCopied(false), 1600);
+      const qrDataUrl = await QRCode.toDataURL(gameUrl, {
+        width: 260,
+        margin: 1,
+        errorCorrectionLevel: "H",
+        color: { dark: "#10183A", light: "#FFFFFF" },
+      });
+      const qrImage = new Image();
+      await new Promise<void>((resolve, reject) => {
+        qrImage.onload = () => resolve();
+        qrImage.onerror = () => reject(new Error("二维码生成失败"));
+        qrImage.src = qrDataUrl;
+      });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1440;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("分享图片生成失败");
+
+      const background = context.createLinearGradient(0, 0, 1080, 1440);
+      background.addColorStop(0, "#FBFCFF");
+      background.addColorStop(0.6, "#F3F7FF");
+      background.addColorStop(1, "#EEF2FF");
+      context.fillStyle = background;
+      context.fillRect(0, 0, 1080, 1440);
+      context.strokeStyle = "rgba(51,112,255,.065)";
+      context.lineWidth = 2;
+      for (let position = 0; position <= 1080; position += 54) {
+        context.beginPath();
+        context.moveTo(position, 0);
+        context.lineTo(position, 1440);
+        context.stroke();
       }
-    } catch {
-      // Cancelling the native share sheet is not an error for the player.
+      for (let position = 0; position <= 1440; position += 54) {
+        context.beginPath();
+        context.moveTo(0, position);
+        context.lineTo(1080, position);
+        context.stroke();
+      }
+
+      const card = (x: number, y: number, width: number, height: number, radius: number, fill: string) => {
+        context.beginPath();
+        context.roundRect(x, y, width, height, radius);
+        context.fillStyle = fill;
+        context.fill();
+      };
+
+      const brandGradient = context.createLinearGradient(74, 56, 146, 128);
+      brandGradient.addColorStop(0, "#10183A");
+      brandGradient.addColorStop(1, "#3370FF");
+      card(68, 54, 84, 84, 24, brandGradient);
+      ["#22D6FF", "#FFFFFF", "#FF3F8E"].forEach((color, index) => {
+        context.save();
+        context.translate(88 + (index === 0 ? 8 : index === 2 ? -8 : 0), 77 + index * 20);
+        context.transform(1, 0, -0.22, 1, 0, 0);
+        card(0, 0, 44, 8, 5, color);
+        context.restore();
+      });
+      context.fillStyle = "#3370FF";
+      context.font = "800 22px Inter, PingFang SC, sans-serif";
+      context.fillText("ORGANIZATION LAB", 178, 84);
+      context.fillStyle = "#10183A";
+      context.font = "900 38px Inter, PingFang SC, sans-serif";
+      context.fillText("合成大豆包", 178, 128);
+      context.textAlign = "right";
+      context.fillStyle = "#60709B";
+      context.font = "750 25px Inter, PingFang SC, sans-serif";
+      context.fillText(`@${usernameRef.current}`, 1004, 99);
+      context.textAlign = "left";
+
+      card(58, 174, 964, 746, 44, "rgba(255,255,255,.91)");
+      context.textAlign = "center";
+      context.fillStyle = "#3370FF";
+      context.font = "850 20px Inter, PingFang SC, sans-serif";
+      context.fillText("YOUR ANNUAL REVIEW", 540, 236);
+      context.fillStyle = "#10183A";
+      context.font = "900 51px Inter, PingFang SC, sans-serif";
+      context.fillText("本年度调整已完成", 540, 304);
+      context.fillStyle = "#707997";
+      context.font = "600 22px Inter, PingFang SC, sans-serif";
+      context.fillText("本年度累计获得", 540, 365);
+      context.fillStyle = "#10183A";
+      context.font = "900 142px Inter, PingFang SC, sans-serif";
+      context.fillText(formatNumber(score), 540, 506);
+      context.fillStyle = "#3370FF";
+      context.font = "850 25px Inter, PingFang SC, sans-serif";
+      context.fillText("字节范儿", 540, 549);
+
+      const performanceGradient = context.createLinearGradient(324, 590, 756, 684);
+      performanceGradient.addColorStop(0, "rgba(34,214,255,.16)");
+      performanceGradient.addColorStop(0.5, "rgba(51,112,255,.13)");
+      performanceGradient.addColorStop(1, "rgba(255,63,142,.13)");
+      card(324, 582, 432, 100, 24, performanceGradient);
+      context.textAlign = "left";
+      context.fillStyle = "#25345F";
+      context.font = "800 24px Inter, PingFang SC, sans-serif";
+      context.fillText("年度绩效", 367, 643);
+      context.textAlign = "right";
+      context.fillStyle = "#3370FF";
+      context.font = "900 52px Inter, PingFang SC, sans-serif";
+      context.fillText(rating, 712, 649);
+
+      const stats = [
+        ["组织调整", adjustments, "次"],
+        ["豆包 Dance", dances, "次"],
+        ["勇攀高峰", peaks, "座"],
+      ] as const;
+      stats.forEach(([label, value, unit], index) => {
+        const x = 96 + index * 304;
+        card(x, 724, 280, 126, 24, "#F7F9FF");
+        context.textAlign = "center";
+        context.fillStyle = "#707997";
+        context.font = "650 18px Inter, PingFang SC, sans-serif";
+        context.fillText(label, x + 140, 762);
+        context.fillStyle = "#10183A";
+        context.font = "900 44px Inter, PingFang SC, sans-serif";
+        context.fillText(`${value} ${unit}`, x + 140, 821);
+      });
+      context.textAlign = "center";
+      context.fillStyle = "#25345F";
+      context.font = "850 25px Inter, PingFang SC, sans-serif";
+      context.fillText(getSummaryLine(score, peaks, dances), 540, 890);
+
+      const mountain = context.createLinearGradient(0, 990, 1080, 1370);
+      mountain.addColorStop(0, "#22D6FF");
+      mountain.addColorStop(0.48, "#3370FF");
+      mountain.addColorStop(1, "#FF3F8E");
+      context.beginPath();
+      context.moveTo(0, 1350);
+      context.lineTo(0, 1215);
+      context.lineTo(225, 1100);
+      context.lineTo(380, 1164);
+      context.lineTo(620, 1018);
+      context.lineTo(815, 1134);
+      context.lineTo(1080, 990);
+      context.lineTo(1080, 1440);
+      context.closePath();
+      context.fillStyle = mountain;
+      context.fill();
+
+      card(58, 958, 964, 404, 42, "rgba(16,24,58,.93)");
+      card(92, 998, 312, 312, 30, "#FFFFFF");
+      context.drawImage(qrImage, 118, 1024, 260, 260);
+      context.textAlign = "left";
+      context.fillStyle = "#22D6FF";
+      context.font = "850 21px Inter, PingFang SC, sans-serif";
+      context.fillText("SCAN TO PLAY", 454, 1052);
+      context.fillStyle = "#FFFFFF";
+      context.font = "900 43px Inter, PingFang SC, sans-serif";
+      context.fillText("扫码加入组织碰撞实验", 454, 1120);
+      context.fillStyle = "rgba(255,255,255,.72)";
+      context.font = "650 22px Inter, PingFang SC, sans-serif";
+      context.fillText("两个相同图标碰撞，合成你的字节范儿", 454, 1170);
+      if (myRank) {
+        card(454, 1210, 278, 62, 18, "rgba(51,112,255,.38)");
+        context.fillStyle = "#FFFFFF";
+        context.font = "850 25px Inter, PingFang SC, sans-serif";
+        context.fillText(`当前全服第 ${myRank} 名`, 484, 1251);
+      }
+      context.fillStyle = "rgba(255,255,255,.54)";
+      context.font = "550 17px Inter, PingFang SC, sans-serif";
+      context.fillText(window.location.host, 454, 1312);
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((value) => value ? resolve(value) : reject(new Error("分享图片生成失败")), "image/png");
+      });
+      const file = new File([blob], `合成大豆包-${usernameRef.current}-年度总结.png`, { type: "image/png" });
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ title: "合成大豆包年度总结", text, files: [file] });
+      } else {
+        const objectUrl = URL.createObjectURL(blob);
+        const download = document.createElement("a");
+        download.href = objectUrl;
+        download.download = file.name;
+        download.click();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+        await navigator.clipboard?.writeText(text).catch(() => undefined);
+      }
+      setShareState("done");
+      window.setTimeout(() => setShareState("idle"), 2200);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setShareState("idle");
+        return;
+      }
+      setShareState("error");
+      window.setTimeout(() => setShareState("idle"), 2200);
     }
   };
 
@@ -1268,9 +1487,9 @@ export default function Home() {
           <form className="modal username-modal" onSubmit={saveUsername} aria-labelledby="username-title">
             <div className="name-orbit" aria-hidden="true"><i>榜</i></div>
             <p className="summary-kicker">WELCOME TO THE LAB</p>
-            <h2 id="username-title">先取一个组织花名</h2>
-            <p className="username-intro">这个名字会随你的最高成绩进入全服排行榜。</p>
-            <label htmlFor="username-input">用户名</label>
+            <h2 id="username-title">先取一个花名</h2>
+            <p className="username-intro">参考阿里花名习惯：2–3 个汉字、积极得体、全服不重名。</p>
+            <label htmlFor="username-input">花名</label>
             <input
               id="username-input"
               value={usernameDraft}
@@ -1278,15 +1497,16 @@ export default function Home() {
                 setUsernameDraft(event.target.value);
                 if (usernameError) setUsernameError("");
               }}
-              maxLength={12}
-              placeholder="输入 2–12 个字符"
+              maxLength={3}
+              placeholder="输入 2–3 个汉字"
               autoComplete="nickname"
+              disabled={usernameSaving}
             />
             <div className="username-meta">
-              <span className={usernameError ? "is-error" : ""}>{usernameError || "填写后即可开始本年度调整"}</span>
-              <b>{Array.from(usernameDraft).length}/12</b>
+              <span className={usernameError ? "is-error" : ""}>{usernameError || "武侠人物只是传统，不作强制"}</span>
+              <b>{Array.from(usernameDraft).length}/3</b>
             </div>
-            <button className="primary-button username-submit" type="submit">以此花名入职</button>
+            <button className="primary-button username-submit" type="submit" disabled={usernameSaving}>{usernameSaving ? "正在查重…" : "以此花名入职"}</button>
           </form>
         </div>
       )}
@@ -1406,9 +1626,12 @@ export default function Home() {
 
             <div className="modal-actions summary-actions">
               <button className="ranking-cta" type="button" onClick={openLeaderboard}>查看字节范儿排行榜</button>
-              <button className="secondary-button" type="button" onClick={shareSummary}>{summaryCopied ? "已复制" : "分享年度总结"}</button>
+              <button className="secondary-button" type="button" onClick={shareSummary} disabled={shareState === "creating"}>
+                {shareState === "creating" ? "正在生成图片…" : shareState === "done" ? "结算图已生成" : shareState === "error" ? "生成失败，请重试" : "分享结算图片"}
+              </button>
               <button className="primary-button" type="button" onClick={resetGame}>开启下一年度</button>
             </div>
+            <p className="share-hint">分享图包含本局成绩和游戏二维码，扫码即可游玩</p>
           </section>
         </div>
       )}

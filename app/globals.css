@@ -705,6 +705,11 @@ h1 {
   box-shadow: 0 0 0 4px rgba(51, 112, 255, 0.1);
 }
 
+.username-modal input:disabled {
+  color: #8b93aa;
+  background: #f3f5fb;
+}
+
 .username-meta {
   min-height: 29px;
   display: flex;
@@ -967,6 +972,13 @@ h1 {
   cursor: pointer;
 }
 
+.primary-button:disabled,
+.secondary-button:disabled,
+.ranking-cta:disabled {
+  opacity: 0.62;
+  cursor: wait;
+}
+
 .primary-button {
   color: white;
   border: 0;
@@ -1160,6 +1172,13 @@ h1 {
   font-size: 10px;
   font-weight: 850;
   cursor: pointer;
+}
+
+.share-hint {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
 }
 
 @keyframes dangerPulse {

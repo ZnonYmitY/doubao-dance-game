@@ -70,24 +70,37 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
 
-test("keeps first-entry username and shared leaderboard capability", async () => {
-  const [page, route, schema, migration, hosting] = await Promise.all([
+test("keeps first-entry alias, result-card sharing, and shared leaderboard capability", async () => {
+  const [page, route, schema, initialMigration, aliasMigration, hosting] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/leaderboard/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0000_stiff_medusa.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0001_far_carnage.sql", import.meta.url), "utf8"),
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /先取一个组织花名/);
+  assert.match(page, /先取一个花名/);
+  assert.match(page, /2–3 个汉字、积极得体、全服不重名/);
+  assert.match(page, /武侠人物只是传统，不作强制/);
   assert.match(page, /doubao-dance-username/);
   assert.match(page, /\/api\/leaderboard/);
+  assert.match(page, /method: "PUT"/);
+  assert.match(page, /QRCode\.toDataURL/);
+  assert.match(page, /扫码加入组织碰撞实验/);
+  assert.match(page, /navigator\.canShare/);
+  assert.match(page, /分享图包含本局成绩和游戏二维码/);
   assert.match(page, /字节范儿排行榜/);
   assert.match(page, /全服第 \{myRank\} 名/);
+  assert.match(route, /\^\[\\p\{Script=Han\}\]\{2,3\}\$/);
+  assert.match(route, /export async function PUT/);
   assert.match(route, /ON CONFLICT\(player_id\) DO UPDATE/);
+  assert.match(route, /WHERE best_score > 0/);
   assert.match(route, /LIMIT 50/);
   assert.match(schema, /idx_leaderboard_ranking/);
-  assert.match(migration, /CREATE TABLE `leaderboard_entries`/);
-  assert.match(migration, /PRAGMA optimize/);
+  assert.match(schema, /idx_leaderboard_username_unique/);
+  assert.match(initialMigration, /CREATE TABLE `leaderboard_entries`/);
+  assert.match(initialMigration, /PRAGMA optimize/);
+  assert.match(aliasMigration, /CREATE UNIQUE INDEX `idx_leaderboard_username_unique`/);
   assert.equal(JSON.parse(hosting).d1, "DB");
 });
