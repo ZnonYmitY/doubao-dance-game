@@ -37,6 +37,8 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   ]);
 
   assert.match(page, /const DANGER_DURATION = 2500/);
+  assert.match(page, /CONTACT_SOLVER_ITERATIONS/);
+  assert.match(page, /stabilizeRestingPile/);
   assert.match(page, /first\.level === MAX_LEVEL/);
   assert.match(page, /peaksRef\.current \+= 1/);
   assert.match(page, /peakCount \* height \* 0\.1/);

@@ -11,6 +11,12 @@ import {
   type PointerEvent,
 } from "react";
 import QRCode from "qrcode";
+import {
+  CONTACT_SOLVER_ITERATIONS,
+  constrainBodyToBoard,
+  resolveCircleContact,
+  stabilizeRestingPile,
+} from "@/lib/physics";
 
 type Level = {
   name: string;
@@ -939,9 +945,9 @@ export default function Home() {
         }
         if (ball.y + radius > bottom) {
           ball.y = bottom - radius;
-          if (ball.vy > 25) ball.vy *= -0.16;
+          if (ball.vy > 80) ball.vy *= -0.12;
           else ball.vy = 0;
-          ball.vx *= 0.965;
+          ball.vx *= 0.94;
           ball.angularVelocity = ball.vx / Math.max(20, radius);
         }
       });
@@ -949,7 +955,7 @@ export default function Home() {
       const removed = new Set<number>();
       const additions: Ball[] = [];
 
-      for (let iteration = 0; iteration < 2; iteration += 1) {
+      for (let iteration = 0; iteration < CONTACT_SOLVER_ITERATIONS; iteration += 1) {
         for (let firstIndex = 0; firstIndex < balls.length; firstIndex += 1) {
           const first = balls[firstIndex];
           if (removed.has(first.id)) continue;
@@ -963,10 +969,6 @@ export default function Home() {
             const minimum = radiusFirst + radiusSecond;
             const distanceSquared = dx * dx + dy * dy;
             if (distanceSquared >= minimum * minimum) continue;
-
-            const distance = Math.max(0.001, Math.sqrt(distanceSquared));
-            const nx = dx / distance;
-            const ny = dy / distance;
 
             if (
               iteration === 0 &&
@@ -1033,28 +1035,9 @@ export default function Home() {
               break;
             }
 
-            const overlap = minimum - distance;
-            const massFirst = radiusFirst * radiusFirst;
-            const massSecond = radiusSecond * radiusSecond;
-            const totalMass = massFirst + massSecond;
-            first.x -= nx * overlap * (massSecond / totalMass) * 0.82;
-            first.y -= ny * overlap * (massSecond / totalMass) * 0.82;
-            second.x += nx * overlap * (massFirst / totalMass) * 0.82;
-            second.y += ny * overlap * (massFirst / totalMass) * 0.82;
-
-            const relativeVelocityX = second.vx - first.vx;
-            const relativeVelocityY = second.vy - first.vy;
-            const velocityAlongNormal = relativeVelocityX * nx + relativeVelocityY * ny;
-            if (velocityAlongNormal < 0) {
-              const restitution = 0.12;
-              const impulse = (-(1 + restitution) * velocityAlongNormal) / (1 / massFirst + 1 / massSecond);
-              const impulseX = impulse * nx;
-              const impulseY = impulse * ny;
-              first.vx -= impulseX / massFirst;
-              first.vy -= impulseY / massFirst;
-              second.vx += impulseX / massSecond;
-              second.vy += impulseY / massSecond;
-            }
+            resolveCircleContact(first, second, radiusFirst, radiusSecond);
+            constrainBodyToBoard(first, radiusFirst, width, bottom);
+            constrainBodyToBoard(second, radiusSecond, width, bottom);
           }
         }
       }
@@ -1062,6 +1045,7 @@ export default function Home() {
       if (removed.size > 0) {
         ballsRef.current = balls.filter((ball) => !removed.has(ball.id)).concat(additions);
       }
+      stabilizeRestingPile(ballsRef.current, width, bottom, levelRadius);
 
       const lineY = dangerY();
       const overflowing = ballsRef.current.some((ball) => {
