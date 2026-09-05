@@ -14,7 +14,6 @@ import QRCode from "qrcode";
 import {
   CONTACT_SOLVER_ITERATIONS,
   constrainBodyToBoard,
-  getContactPadding,
   getPhysicsSubsteps,
   resolveCircleContact,
 } from "@/lib/physics";
@@ -78,9 +77,11 @@ const LEVELS: Level[] = [
   { name: "豆包工作", key: "doubao-work", color: "#12bfa6", accent: "#087d87", radius: 47, score: 32, symbol: "▣", icon: "/icons/level-05-doubao-work.png" },
   { name: "豆包", key: "doubao", color: "#ff7147", accent: "#ff3f77", radius: 58, score: 64, symbol: "●", icon: "/icons/level-06-doubao.png" },
   { name: "Doubao Dance", key: "doubao-dance", color: "#18234d", accent: "#ff3f8e", radius: 70, score: 128, symbol: "≋", icon: "/icons/level-07-doubao-dance.png" },
-  { name: "大豆包", key: "real-doubao", color: "#f5d6a7", accent: "#a94e28", radius: 58, score: 300, symbol: "包", icon: "/icons/level-08-real-doubao.png" },
+  { name: "大豆包", key: "real-doubao", color: "#f5d6a7", accent: "#a94e28", radius: 64, score: 300, symbol: "包", icon: "/icons/level-08-real-doubao.png" },
 ];
 
+const GAME_WIDTH = 390;
+const GAME_HEIGHT = 560;
 const DANCE_LEVEL = 6;
 const FINAL_LEVEL = 7;
 const DROP_COOLDOWN = 430;
@@ -193,7 +194,7 @@ export default function Home() {
   const ballsRef = useRef<Ball[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const iconsRef = useRef<Array<HTMLImageElement | null>>([]);
-  const dimensionsRef = useRef({ width: 390, height: 560, dpr: 1 });
+  const dimensionsRef = useRef({ width: GAME_WIDTH, height: GAME_HEIGHT, dpr: 1 });
   const aimXRef = useRef(195);
   const currentLevelRef = useRef(0);
   const nextLevelRef = useRef(0);
@@ -292,10 +293,7 @@ export default function Home() {
     oscillator.stop(start + duration + 0.02);
   }, []);
 
-  const levelRadius = useCallback((level: number) => {
-    const scale = Math.min(1.18, Math.max(0.86, dimensionsRef.current.width / 390));
-    return LEVELS[level].radius * scale;
-  }, []);
+  const levelRadius = useCallback((level: number) => LEVELS[level].radius, []);
 
   const targetMountainRise = useCallback((peakCount = peaksRef.current) => {
     const { height } = dimensionsRef.current;
@@ -500,7 +498,8 @@ export default function Home() {
     if (!board) return;
     const rect = board.getBoundingClientRect();
     const radius = levelRadius(currentLevelRef.current);
-    aimXRef.current = Math.max(radius + 3, Math.min(rect.width - radius - 3, clientX - rect.left));
+    const logicalX = ((clientX - rect.left) / rect.width) * GAME_WIDTH;
+    aimXRef.current = Math.max(radius + 3, Math.min(GAME_WIDTH - radius - 3, logicalX));
   }, [levelRadius]);
 
   const handlePointerMove = useCallback((event: PointerEvent<HTMLCanvasElement>) => {
@@ -603,32 +602,10 @@ export default function Home() {
     if (!board || !canvas) return;
 
     const updateSize = () => {
-      const rect = board.getBoundingClientRect();
-      const old = dimensionsRef.current;
-      const width = Math.max(280, rect.width);
-      const isShortLandscape = window.innerWidth > window.innerHeight && window.innerHeight < 560;
-      const height = Math.max(isShortLandscape ? 260 : 390, rect.height);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      if (Math.abs(old.width - width) > 1 || Math.abs(old.height - height) > 1) {
-        const xScale = width / old.width;
-        const yScale = height / old.height;
-        ballsRef.current.forEach((ball) => {
-          ball.x *= xScale;
-          ball.y *= yScale;
-          ball.vx *= xScale;
-          ball.vy *= yScale;
-        });
-        aimXRef.current *= xScale;
-      }
-      dimensionsRef.current = { width, height, dpr };
-      if (Math.abs(old.height - height) > 1 && peaksRef.current > 0) {
-        mountainRiseRef.current = Math.min(height * 0.44, peaksRef.current * height * 0.1);
-        mountainAnimationRef.current = null;
-      }
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
+      dimensionsRef.current = { width: GAME_WIDTH, height: GAME_HEIGHT, dpr };
+      canvas.width = Math.round(GAME_WIDTH * dpr);
+      canvas.height = Math.round(GAME_HEIGHT * dpr);
     };
 
     updateSize();
@@ -738,6 +715,12 @@ export default function Home() {
       context.shadowColor = "rgba(17, 27, 67, .2)";
       context.shadowBlur = Math.max(7, radius * 0.2);
       context.shadowOffsetY = Math.max(3, radius * 0.1);
+      if (ball.level === FINAL_LEVEL && hasIcon && icon) {
+        const size = radius * 2.18;
+        context.drawImage(icon, ball.x - size / 2, ball.y - size / 2, size, size);
+        context.restore();
+        return;
+      }
       const gradient = context.createRadialGradient(
         ball.x - radius * 0.34,
         ball.y - radius * 0.42,
@@ -763,19 +746,6 @@ export default function Home() {
         bubbleGradient.addColorStop(0.78, "rgba(112,146,255,.34)");
         bubbleGradient.addColorStop(1, "rgba(255,63,142,.28)");
         context.fillStyle = bubbleGradient;
-      } else if (ball.level === FINAL_LEVEL) {
-        const bunGradient = context.createRadialGradient(
-          ball.x - radius * 0.32,
-          ball.y - radius * 0.38,
-          radius * 0.08,
-          ball.x,
-          ball.y,
-          radius,
-        );
-        bunGradient.addColorStop(0, "rgba(255,255,255,.98)");
-        bunGradient.addColorStop(0.7, "rgba(255,244,218,.94)");
-        bunGradient.addColorStop(1, "rgba(218,159,93,.72)");
-        context.fillStyle = bunGradient;
       } else {
         context.fillStyle = hasIcon ? "#ffffff" : gradient;
       }
@@ -814,9 +784,9 @@ export default function Home() {
         } else {
           context.save();
           context.beginPath();
-          context.arc(ball.x, ball.y, radius * (ball.level === FINAL_LEVEL ? 0.94 : 0.91), 0, Math.PI * 2);
+          context.arc(ball.x, ball.y, radius * 0.91, 0, Math.PI * 2);
           context.clip();
-          const size = radius * (ball.level === FINAL_LEVEL ? 1.72 : 1.92);
+          const size = radius * 1.92;
           context.drawImage(icon, ball.x - size / 2, ball.y - size / 2, size, size);
           context.restore();
         }
@@ -992,10 +962,7 @@ export default function Home() {
             const dy = second.y - first.y;
             const radiusFirst = levelRadius(first.level);
             const radiusSecond = levelRadius(second.level);
-            const contactPadding = getContactPadding(radiusFirst, radiusSecond);
-            const contactRadiusFirst = radiusFirst + contactPadding / 2;
-            const contactRadiusSecond = radiusSecond + contactPadding / 2;
-            const minimum = contactRadiusFirst + contactRadiusSecond;
+            const minimum = radiusFirst + radiusSecond;
             const distanceSquared = dx * dx + dy * dy;
             if (distanceSquared >= minimum * minimum) continue;
 
@@ -1077,7 +1044,7 @@ export default function Home() {
               break;
             }
 
-            resolveCircleContact(first, second, contactRadiusFirst, contactRadiusSecond);
+            resolveCircleContact(first, second, radiusFirst, radiusSecond);
             constrainBodyToBoard(first, radiusFirst, width, bottom);
             constrainBodyToBoard(second, radiusSecond, width, bottom);
           }
@@ -1287,11 +1254,7 @@ export default function Home() {
         context.fill();
       };
 
-      const brandGradient = context.createLinearGradient(68, 54, 152, 138);
-      brandGradient.addColorStop(0, "#172249");
-      brandGradient.addColorStop(1, "#3370FF");
-      card(68, 54, 84, 84, 24, brandGradient);
-      context.drawImage(bunImage, 73, 59, 74, 74);
+      context.drawImage(bunImage, 65, 47, 96, 96);
       context.fillStyle = "#3370FF";
       context.font = "800 22px Inter, PingFang SC, sans-serif";
       context.fillText("ORGANIZATION LAB", 178, 84);

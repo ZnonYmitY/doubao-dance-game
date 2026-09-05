@@ -8,16 +8,13 @@ export type CircleBody = {
   angularVelocity: number;
 };
 
-export const CONTACT_SOLVER_ITERATIONS = 6;
-export const CONTACT_SLOP = 0.08;
-export const POSITION_CORRECTION = 0.72;
-
-export function getContactPadding(radiusFirst: number, radiusSecond: number) {
-  const smaller = Math.min(radiusFirst, radiusSecond);
-  const larger = Math.max(radiusFirst, radiusSecond);
-  if (smaller <= 0 || larger / smaller < 2.5) return 0;
-  return Math.min(2.5, Math.max(1.5, larger * 0.035));
-}
+// These are the launch-version coefficients. Keep the original bounce and
+// response curve; extra substeps handle fast movement without making the pile
+// feel artificially rigid.
+export const CONTACT_SOLVER_ITERATIONS = 2;
+export const CONTACT_SLOP = 0;
+export const POSITION_CORRECTION = 0.82;
+export const COLLISION_RESTITUTION = 0.12;
 
 export function getPhysicsSubsteps(
   bodies: CircleBody[],
@@ -31,8 +28,8 @@ export function getPhysicsSubsteps(
     maximumTravel = Math.max(maximumTravel, Math.hypot(body.vx, body.vy) * elapsed);
     smallestRadius = Math.min(smallestRadius, radiusForLevel(body.level));
   });
-  const safeTravel = Math.max(7, smallestRadius * 0.45);
-  return Math.min(5, Math.max(2, Math.ceil(maximumTravel / safeTravel)));
+  const safeTravel = Math.max(10, smallestRadius * 0.8);
+  return Math.min(4, Math.max(2, Math.ceil(maximumTravel / safeTravel)));
 }
 
 export function constrainBodyToBoard(
@@ -72,11 +69,8 @@ export function resolveCircleContact(
   const massSecond = radiusSecond * radiusSecond;
   const totalMass = massFirst + massSecond;
   const correction = Math.max(0, overlap - CONTACT_SLOP) * POSITION_CORRECTION;
-  const rawFirstWeight = massSecond / totalMass;
-  // A tiny body trapped beside a very large one must not absorb the entire
-  // correction. Giving both bodies a minimum share prevents visual clipping.
-  const firstWeight = Math.min(0.84, Math.max(0.16, rawFirstWeight));
-  const secondWeight = 1 - firstWeight;
+  const firstWeight = massSecond / totalMass;
+  const secondWeight = massFirst / totalMass;
 
   first.x -= nx * correction * firstWeight;
   first.y -= ny * correction * firstWeight;
@@ -87,10 +81,7 @@ export function resolveCircleContact(
   const relativeVelocityY = second.vy - first.vy;
   const velocityAlongNormal = relativeVelocityX * nx + relativeVelocityY * ny;
   if (velocityAlongNormal < 0) {
-    // Keep the original playful response even for gentle contacts. Stability is
-    // handled by substeps and position correction instead of erasing motion.
-    const restitution = 0.12;
-    const impulse = (-(1 + restitution) * velocityAlongNormal) / (1 / massFirst + 1 / massSecond);
+    const impulse = (-(1 + COLLISION_RESTITUTION) * velocityAlongNormal) / (1 / massFirst + 1 / massSecond);
     const impulseX = impulse * nx;
     const impulseY = impulse * ny;
     first.vx -= impulseX / massFirst;

@@ -44,8 +44,11 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   assert.match(page, /first\.level === DANCE_LEVEL/);
   assert.match(page, /first\.level < FINAL_LEVEL/);
   assert.match(page, /level: FINAL_LEVEL/);
-  assert.match(page, /getContactPadding/);
+  assert.doesNotMatch(page, /getContactPadding/);
   assert.match(page, /getPhysicsSubsteps/);
+  assert.match(page, /const GAME_WIDTH = 390/);
+  assert.match(page, /const GAME_HEIGHT = 560/);
+  assert.match(page, /logicalX = \(\(clientX - rect\.left\) \/ rect\.width\) \* GAME_WIDTH/);
   assert.match(page, /peaksRef\.current \+= 1/);
   assert.match(page, /peakCount \* height \* 0\.1/);
   assert.match(page, /duration: 720/);
@@ -73,11 +76,13 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   assert.match(layout, /viewportFit: "cover"/);
   assert.match(styles, /--playfield-top: #dbe4f4/);
   assert.match(styles, /--playfield-bottom: #bfcee6/);
+  assert.match(styles, /aspect-ratio: 390 \/ 560/);
+  assert.match(styles, /\.level-badge\.has-image\.level-7[\s\S]*?border: 0/);
   assert.doesNotMatch(styles, /linear-gradient\(180deg, #ffffff 0%, #f5f7ff 100%\)/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(iconGuide, /level-07-doubao-dance\.png/);
   assert.match(iconGuide, /level-08-real-doubao\.png/);
-  assert.match(gameDesign, /V0\.4/);
+  assert.match(gameDesign, /V0\.5/);
   assert.match(gameDesign, /大豆包不可继续合成，但仍参与后续碰撞/);
   assert.doesNotMatch(gameDesign, /Doubao Dance 相遇后同时消失|Doubao Dance 碰撞后爆开消失/);
   await Promise.all([

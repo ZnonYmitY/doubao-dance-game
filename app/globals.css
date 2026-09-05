@@ -80,15 +80,13 @@ canvas:focus-visible {
   height: 42px;
   display: grid;
   place-items: center;
-  overflow: hidden;
-  border-radius: 14px;
-  background: linear-gradient(145deg, #111a3a, #263a7a);
-  box-shadow: 0 10px 25px rgba(16, 24, 58, 0.2);
+  overflow: visible;
+  background: transparent;
 }
 
 .brand-mark img {
-  width: 37px;
-  height: 37px;
+  width: 44px;
+  height: 44px;
   object-fit: contain;
   filter: drop-shadow(0 3px 5px rgba(7, 14, 39, 0.28));
 }
@@ -235,6 +233,8 @@ h1 {
 
 .play-layout {
   position: relative;
+  width: min(100%, 390px);
+  margin-inline: auto;
 }
 
 .next-card,
@@ -276,7 +276,8 @@ h1 {
   --danger-progress: 0%;
   position: relative;
   width: 100%;
-  height: clamp(430px, 61svh, 610px);
+  height: auto;
+  aspect-ratio: 390 / 560;
   overflow: hidden;
   border: 2px solid rgba(16, 24, 58, 0.11);
   border-radius: 25px;
@@ -496,9 +497,14 @@ h1 {
 }
 
 .level-badge.has-image.level-7 {
-  border-color: rgba(255, 255, 255, 0.94);
-  background: radial-gradient(circle at 32% 24%, #fffdf6, #f4d7ac 72%, #c87945);
-  box-shadow: 0 5px 14px rgba(151, 77, 39, 0.23), inset 0 0 0 1px rgba(255, 255, 255, 0.52);
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.level-badge.has-image.level-7 img {
+  transform: scale(1.16);
 }
 
 .level-badge img.is-visible {
@@ -1296,10 +1302,6 @@ h1 {
     padding-block: 8px;
   }
 
-  .game-board {
-    height: max(390px, 55svh);
-  }
-
   .level-strip {
     margin-top: 8px;
     padding-block: 7px;
@@ -1351,9 +1353,13 @@ h1 {
   }
 
   .game-board {
-    height: max(260px, calc(100svh - 132px));
-    min-height: 260px;
+    height: auto;
+    min-height: 0;
     border-radius: 18px;
+  }
+
+  .play-layout {
+    width: min(390px, calc((100svh - 132px) * 0.6964286));
   }
 
   .level-strip,
