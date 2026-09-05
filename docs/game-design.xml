@@ -51,14 +51,14 @@
   <colgroup><col width="80"/><col width="220"/><col width="260"/></colgroup>
   <thead><tr><th background-color="light-purple">绩效</th><th background-color="light-purple">当前判定条件</th><th background-color="light-purple">设计意图</th></tr></thead>
   <tbody>
-    <tr><td><b>E</b></td><td>字节范儿 ≥ 9000</td><td>顶级结算</td></tr>
-    <tr><td><b>M+</b></td><td>6000–8999</td><td>高完成度</td></tr>
-    <tr><td><b>M</b></td><td>3800–5999</td><td>稳定拿结果</td></tr>
-    <tr><td><b>M-</b></td><td>1800–3799</td><td>核心目标基本达成</td></tr>
-    <tr><td><b>I</b></td><td>0–1799</td><td>年度目标仍在对齐</td></tr>
+    <tr><td><b>E</b></td><td>字节范儿 ≥ 6500，或高峰 ≥ 3 座</td><td>顶级结算</td></tr>
+    <tr><td><b>M+</b></td><td>5000–6499，或高峰 ≥ 2 座</td><td>高完成度</td></tr>
+    <tr><td><b>M</b></td><td>3500–4999，或高峰 ≥ 1 座</td><td>稳定拿结果</td></tr>
+    <tr><td><b>M-</b></td><td>1800–3499</td><td>核心目标基本达成</td></tr>
+    <tr><td><b>I</b></td><td>0–1799 且没有高峰</td><td>年度目标仍在对齐</td></tr>
   </tbody>
 </table>
-<p>绩效只按字节范儿判定，高峰数和 Doubao Dance 次数不再触发越级，避免低分因单次登峰直接获得高绩效。后续可根据数据看板中的真实场次微调阈值。</p>
+<p>绩效按字节范儿与高峰数分别判定，满足任一条件即可获得对应档位，并取两者中的最高档；Doubao Dance 次数不参与绩效。后续可根据数据看板中的真实场次微调阈值。</p>
 
 <h1>6. 交互与体验细节</h1>
 <ul>
@@ -126,7 +126,7 @@
   <li>本年度调整已完成</li>
   <li>本年度累计获得 {分数} 字节范儿</li>
   <li>年度绩效 {E / M+ / M / M- / I}</li>
-  <li>只按字节范儿评定 · 1800 以下为 I</li>
+  <li>字节范儿或高峰数满足其一 · 取最高档</li>
   <li>经历了 {次数} 次组织架构调整</li>
   <li>见证了 {次数} 次豆包 Dance</li>
   <li>攀登了 {数量} 座高峰</li>

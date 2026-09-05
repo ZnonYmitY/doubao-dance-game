@@ -1293,9 +1293,9 @@ export default function Home() {
   };
 
   const shareSummary = async () => {
-    const rating = getPerformanceRating(score);
+    const rating = getPerformanceRating(score, peaks);
     const gameUrl = gameShareUrl();
-    const text = `我的合成大豆包年度总结：获得 ${formatNumber(score)} 字节范儿，经历 ${adjustments} 次组织架构调整，攀登 ${peaks} 座高峰，绩效 ${rating}。${getPerformanceSummary(score)}！扫码或打开 ${gameUrl}`;
+    const text = `我的合成大豆包年度总结：获得 ${formatNumber(score)} 字节范儿，经历 ${adjustments} 次组织架构调整，攀登 ${peaks} 座高峰，绩效 ${rating}。${getPerformanceSummary(score, peaks)}！扫码或打开 ${gameUrl}`;
     setShareState("creating");
     try {
       const qrDataUrl = await QRCode.toDataURL(gameUrl, {
@@ -1413,7 +1413,7 @@ export default function Home() {
       context.textAlign = "center";
       context.fillStyle = "#25345F";
       context.font = "850 25px Inter, PingFang SC, sans-serif";
-      context.fillText(getPerformanceSummary(score), 540, 890);
+      context.fillText(getPerformanceSummary(score, peaks), 540, 890);
 
       const mountain = context.createLinearGradient(0, 990, 1080, 1370);
       mountain.addColorStop(0, "#22D6FF");
@@ -1812,8 +1812,8 @@ export default function Home() {
 
             <div className="performance-result">
               <span>年度绩效</span>
-              <strong>{getPerformanceRating(score)}</strong>
-              <small>只按字节范儿评定 · 1800 以下为 I</small>
+              <strong>{getPerformanceRating(score, peaks)}</strong>
+              <small>字节范儿或高峰数满足其一 · 取最高档</small>
             </div>
 
             <div className="summary-grid">
@@ -1822,7 +1822,7 @@ export default function Home() {
               <div><span>攀登了</span><strong>{peaks}</strong><small>座高峰</small></div>
             </div>
 
-            <blockquote>{getPerformanceSummary(score)}</blockquote>
+            <blockquote>{getPerformanceSummary(score, peaks)}</blockquote>
             <p className="best-line">历史最佳：{formatNumber(Math.max(bestScore, score))} 字节范儿 · {Math.max(bestPeaks, peaks)} 座高峰</p>
 
             <div className={`rank-result is-${scoreSyncState}`} role="status">

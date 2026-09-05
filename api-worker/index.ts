@@ -119,7 +119,7 @@ async function leaderboard(request: Request, db: D1Database) {
     if (score === null || adjustments === null || peaks === null || dances === null) {
       return json(request, { error: "成绩数据无效。" }, 400);
     }
-    const rating = getPerformanceRating(score);
+    const rating = getPerformanceRating(score, peaks);
     await db.prepare(`
       INSERT INTO leaderboard_entries (
         player_id, username, best_score, best_peaks, best_adjustments,

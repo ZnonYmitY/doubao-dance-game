@@ -22,6 +22,13 @@
       "when": 1788591004216,
       "tag": "0002_watery_zaladane",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788600000000,
+      "tag": "0003_performance_peaks",
+      "breakpoints": true
     }
   ]
 }

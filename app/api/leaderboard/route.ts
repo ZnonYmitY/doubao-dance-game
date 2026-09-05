@@ -119,7 +119,7 @@ export async function POST(request: Request) {
       return json({ error: "成绩数据无效。" }, 400);
     }
 
-    const rating = getPerformanceRating(score);
+    const rating = getPerformanceRating(score, peaks);
     const db = getD1();
     await db.prepare(`
       INSERT INTO leaderboard_entries (

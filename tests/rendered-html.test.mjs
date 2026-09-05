@@ -146,7 +146,7 @@ test("keeps first-entry alias, WeChat-safe sharing, analytics, and shared leader
   assert.match(analyticsRoute, /COUNT\(DISTINCT player_id\)/);
   assert.match(analyticsRoute, /GROUP BY channel/);
   assert.match(analyticsMigration, /INSERT OR IGNORE INTO `game_sessions`/);
-  assert.match(analyticsMigration, /WHEN `best_score` >= 9000 THEN 'E'/);
+  assert.match(analyticsMigration, /WHEN `best_score` >= 6500 OR `best_peaks` >= 3 THEN 'E'/);
   assert.match(pagesWorkflow, /actions\/deploy-pages@v4/);
   assert.match(pagesConfig, /base: "\/doubao-dance-game\/"/);
   assert.match(apiWorker, /Access-Control-Allow-Origin/);
