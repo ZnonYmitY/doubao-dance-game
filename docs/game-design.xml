@@ -1,10 +1,10 @@
 <title>《合成大豆包》游戏策划案与字幕清单</title>
 
 <callout emoji="🕺" background-color="light-blue" border-color="blue">
-  <p><b>一句话概念：</b>把组织与产品图标做成一局“懂得都懂”的合成游戏；相同图标碰撞升级，两个 Doubao Dance 相遇后消失并升起一座高峰，最后以“字节范儿”和年度绩效收尾。</p>
+  <p><b>一句话概念：</b>把组织与产品图标做成一局“懂得都懂”的合成游戏；相同图标碰撞升级，两个 Doubao Dance 相遇后合成一个留在场内的大豆包并升起一座高峰，最后以“字节范儿”和年度绩效收尾。</p>
 </callout>
 
-<p><b>当前版本：</b>V0.3（文档建议已落地：命名、互联网黑话、结算文案与 Doubao Dance 泡泡样式）</p>
+<p><b>当前版本：</b>V0.4（加入真实豆包终局、分享恢复与极端尺寸防穿模，同时保留速度、旋转和回弹手感）</p>
 <bookmark name="打开当前游戏（私有链接）" href="https://doubao-dance-game.lucky-plum-7420.chatgpt.site"></bookmark>
 
 <h1>1. 产品定位</h1>
@@ -17,8 +17,8 @@
 <ol>
   <li seq="auto"><b>选位：</b>玩家左右拖动待投放图标，松手后落下；桌面端也支持方向键与空格。</li>
   <li seq="auto"><b>碰撞：</b>两个相同图标接触，合成为下一级图标，并累计一次“组织调整”。</li>
-  <li seq="auto"><b>升级：</b>合成链依次为 Mira → AIME → Coze → 飞书 → 豆包工作 → 豆包 → Doubao Dance。</li>
-  <li seq="auto"><b>登峰：</b>两个最高级 Doubao Dance 相遇后同时消失，增加字节范儿并升起一座山峰。</li>
+  <li seq="auto"><b>升级：</b>合成链依次为 Mira → AIME → Coze → 飞书 → 豆包工作 → 豆包 → Doubao Dance → 大豆包。</li>
+  <li seq="auto"><b>登峰：</b>两个 Doubao Dance 相遇后合成一个不可继续升级的大豆包，增加字节范儿并升起一座山峰。</li>
   <li seq="auto"><b>加压：</b>每座山让底部约上升游戏区高度的 10%，有效空间持续缩小。</li>
   <li seq="auto"><b>结束：</b>任意图标持续越过警戒线 2.5 秒，本年度调整结束并进入结算。</li>
 </ol>
@@ -35,13 +35,13 @@
     <tr><td>5</td><td>豆包工作</td><td>level-05-doubao-work.png</td><td>+32</td><td>开始认真工作</td></tr>
     <tr><td>6</td><td>豆包</td><td>level-06-doubao.png</td><td>+64</td><td>卷起来！</td></tr>
     <tr><td>7</td><td>Doubao Dance</td><td>level-07-doubao-dance.png</td><td>+128</td><td>豆包开始 Dance！</td></tr>
-    <tr><td>高峰</td><td>两个 Doubao Dance</td><td>相遇后消失</td><td>+300，之后每峰递增 80</td><td>OKR 完成！</td></tr>
+    <tr><td>8</td><td>大豆包</td><td>level-08-real-doubao.png</td><td>+300，之后每峰递增 80</td><td>OKR 完成 · 豆包登顶！</td></tr>
   </tbody>
 </table>
 <p><b>初始投放概率：</b>Mira 4/7、AIME 2/7、Coze 1/7。图标越高级，体积越大；正式图标统一裁成圆形展示，保留白底或品牌底色，球体仍有高光、描边和阴影以维持物理感。</p>
 
 <h1>4. 高峰机制</h1>
-<p>两个 Doubao Dance 碰撞后爆开消失，山体从底部上升。每次目标高度增加约 10%，上升动画时长 720 毫秒，采用缓出效果，并辅以山脊高光、上升箭头、粒子和轻提示音。</p>
+<p>两个 Doubao Dance 碰撞后合成一个真实豆包并留在场内，山体同时从底部上升。每次目标高度增加约 10%，上升动画时长 720 毫秒，采用缓出效果，并辅以山脊高光、上升箭头、粒子和轻提示音。大豆包不可继续合成，但仍参与后续碰撞。</p>
 <p><b>“勇 攀 高 峰”</b>四个字直接描边并写在山体靠上的区域，不再使用独立深色标签。第一座山升起时文字即可完整露出；后续山体继续抬升，文字随山体一起上移。山体总高度上限为游戏区约 44%，避免完全遮挡玩法。</p>
 
 <h1>5. 计分、统计与绩效</h1>
@@ -88,7 +88,7 @@
     <tr><td>警戒线</td><td>组织空间警戒线</td><td>画布内右侧标识</td></tr>
     <tr><td>倒计时</td><td>空间预警 {秒数}s</td><td>越线时出现</td></tr>
     <tr><td>山体</td><td>勇 攀 高 峰</td><td>直接嵌在山体上</td></tr>
-    <tr><td>底部说明</td><td>两个最高级图标相遇后消失，高峰升起，空间缩小</td><td>最高级规则</td></tr>
+    <tr><td>底部说明</td><td>两个 Doubao Dance 相遇后合成大豆包，高峰升起，空间缩小</td><td>终局规则</td></tr>
     <tr><td>底部说明</td><td>持续越过警戒线 2.5 秒，本年度结束</td><td>结束规则</td></tr>
   </tbody>
 </table>
@@ -102,7 +102,7 @@
     <tr><td>合成豆包工作</td><td>开始认真工作</td><td>约 0.9 秒</td></tr>
     <tr><td>合成豆包</td><td>卷起来！</td><td>约 0.9 秒</td></tr>
     <tr><td>合成 Doubao Dance</td><td>豆包开始 Dance！</td><td>约 1.25 秒</td></tr>
-    <tr><td>两个 Doubao Dance 相遇</td><td>OKR 完成！</td><td>约 1.45 秒</td></tr>
+    <tr><td>两个 Doubao Dance 相遇</td><td>OKR 完成 · 豆包登顶！</td><td>约 1.55 秒</td></tr>
   </tbody>
 </table>
 <p><b>动态黑话：</b>连续 2 次合成显示“高效对齐”，连续 3 次显示“协同效率拉满”，连续 4 次及以上显示“超预期交付”；与里程碑字幕同时触发时组合展示。连续 3 次投放未合成时显示“非核心环节延后处理”。</p>
@@ -112,7 +112,7 @@
   <li>GAME SETTINGS / 调整说明</li>
   <li>移动投放位置，松手让图标落下。</li>
   <li>两个相同图标碰撞，合成下一级。</li>
-  <li>两个 Doubao Dance 消失，并升起一座高峰。</li>
+  <li>两个 Doubao Dance 合成大豆包，并升起一座高峰。</li>
   <li>图标持续越过警戒线，本年度调整结束。</li>
   <li>声音反馈 / 合成与高峰提示音</li>
   <li>触感反馈 / 支持的移动设备生效</li>
@@ -138,11 +138,11 @@
 <h1>8. 视觉规范</h1>
 <p><b>主色：</b>深字节蓝、亮蓝、青色与玫红；背景保持冷白和淡蓝紫渐变，卡片以高圆角、细描边和轻阴影呈现。</p>
 <p><b>游戏区：</b>浅色网格模拟组织图纸；警戒线使用低饱和玫红；山体采用蓝—紫—玫红渐变，与顶栏和品牌感保持统一。</p>
-<p><b>图标：</b>不显示名称，以品牌图形承担识别；Mira、AIME、Coze、飞书、豆包工作和豆包使用用户提供的正式图片。Doubao Dance 使用原字标中的品牌符号，但最高级球体改为半透明蓝粉泡泡，“Doubao / Dance”分两行显示，避免长字标缩得过小或出现额外紫色底。</p>
+<p><b>图标：</b>不显示名称，以品牌图形承担识别；Mira、AIME、Coze、飞书、豆包工作和豆包使用用户提供的正式图片。Doubao Dance 使用原字标中的品牌符号，球体为半透明蓝粉泡泡，“Doubao / Dance”分两行显示；终局大豆包使用透明底的真实豆包图片，同时作为页头 Logo 和分享图 Logo。</p>
 
 <h1>9. 当前完成状态与后续项</h1>
 <checkbox done="true">完整合成链、物理碰撞、计分和结束条件</checkbox>
-<checkbox done="true">两个 Doubao Dance 消失并升峰</checkbox>
+<checkbox done="true">两个 Doubao Dance 合成大豆包并升峰</checkbox>
 <checkbox done="true">每峰约上升 10%，首峰露出“勇 攀 高 峰”</checkbox>
 <checkbox done="true">7 个正式图标接入并提供失败回退</checkbox>
 <checkbox done="true">年度绩效 E、M+、M、M-、I</checkbox>

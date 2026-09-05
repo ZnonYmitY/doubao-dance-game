@@ -29,12 +29,13 @@ test("server-renders the organization merge game", async () => {
 });
 
 test("keeps gameplay, mobile input, annual review, and final icons in source", async () => {
-  const [page, layout, styles, packageJson, iconGuide] = await Promise.all([
+  const [page, layout, styles, packageJson, iconGuide, gameDesign] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../public/icons/README.md", import.meta.url), "utf8"),
+    readFile(new URL("../docs/game-design.xml", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /const DANGER_DURATION = 2500/);
@@ -66,6 +67,8 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   assert.match(page, /const nativeShare = navigator\.share/);
   assert.match(page, /window\.addEventListener\("pageshow", restorePage\)/);
   assert.match(page, /<img src="\/icons\/level-08-real-doubao\.png" alt=""/);
+  assert.match(page, /两个 Doubao Dance 合成大豆包，并升起一座高峰。/);
+  assert.doesNotMatch(page, /两个 Doubao Dance 消失/);
   assert.doesNotMatch(page, /图标槽位已预留/);
   assert.match(layout, /viewportFit: "cover"/);
   assert.match(styles, /--playfield-top: #dbe4f4/);
@@ -74,6 +77,9 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(iconGuide, /level-07-doubao-dance\.png/);
   assert.match(iconGuide, /level-08-real-doubao\.png/);
+  assert.match(gameDesign, /V0\.4/);
+  assert.match(gameDesign, /大豆包不可继续合成，但仍参与后续碰撞/);
+  assert.doesNotMatch(gameDesign, /Doubao Dance 相遇后同时消失|Doubao Dance 碰撞后爆开消失/);
   await Promise.all([
     "level-01-mira.png",
     "level-02-aime.png",

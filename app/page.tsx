@@ -1617,7 +1617,7 @@ export default function Home() {
             <ol className="rules-list">
               <li><b>01</b><span>移动投放位置，松手让图标落下。</span></li>
               <li><b>02</b><span>两个相同图标碰撞，合成下一级。</span></li>
-              <li><b>03</b><span>两个 Doubao Dance 消失，并升起一座高峰。</span></li>
+              <li><b>03</b><span>两个 Doubao Dance 合成大豆包，并升起一座高峰。</span></li>
               <li><b>04</b><span>图标持续越过警戒线，本年度调整结束。</span></li>
             </ol>
 
