@@ -1709,7 +1709,7 @@ export default function Home() {
               <div>
                 <p className="eyebrow">ORGANIZATION DATA</p>
                 <h2 id="analytics-title">合成大豆包数据看板</h2>
-                <p className="analytics-note">实时统计 · 转发数按用户主动选择渠道或完成系统分享计</p>
+                <p className="analytics-note">实时统计 · 历史场次按每位花名至少 1 场回填，转发从本版开始记录</p>
               </div>
               <button className="close-button" type="button" onClick={closeAnalytics} aria-label="关闭数据看板">×</button>
             </div>
