@@ -14,8 +14,9 @@ import QRCode from "qrcode";
 import {
   CONTACT_SOLVER_ITERATIONS,
   constrainBodyToBoard,
+  getContactPadding,
+  getPhysicsSubsteps,
   resolveCircleContact,
-  stabilizeRestingPile,
 } from "@/lib/physics";
 
 type Level = {
@@ -77,9 +78,11 @@ const LEVELS: Level[] = [
   { name: "豆包工作", key: "doubao-work", color: "#12bfa6", accent: "#087d87", radius: 47, score: 32, symbol: "▣", icon: "/icons/level-05-doubao-work.png" },
   { name: "豆包", key: "doubao", color: "#ff7147", accent: "#ff3f77", radius: 58, score: 64, symbol: "●", icon: "/icons/level-06-doubao.png" },
   { name: "Doubao Dance", key: "doubao-dance", color: "#18234d", accent: "#ff3f8e", radius: 70, score: 128, symbol: "≋", icon: "/icons/level-07-doubao-dance.png" },
+  { name: "大豆包", key: "real-doubao", color: "#f5d6a7", accent: "#a94e28", radius: 58, score: 300, symbol: "包", icon: "/icons/level-08-real-doubao.png" },
 ];
 
-const MAX_LEVEL = LEVELS.length - 1;
+const DANCE_LEVEL = 6;
+const FINAL_LEVEL = 7;
 const DROP_COOLDOWN = 430;
 const DANGER_DURATION = 2500;
 const DROP_POOL = [0, 0, 0, 0, 1, 1, 2];
@@ -118,7 +121,7 @@ function isValidAlias(value: string) {
 function LevelBadge({ levelIndex, compact = false }: { levelIndex: number; compact?: boolean }) {
   const level = LEVELS[levelIndex];
   const [imageFailed, setImageFailed] = useState(false);
-  const isDance = levelIndex === MAX_LEVEL;
+  const isDance = levelIndex === DANCE_LEVEL;
   const hasImage = !imageFailed;
 
   return (
@@ -174,12 +177,12 @@ function getSummaryLine(score: number, peaks: number, dances: number) {
 
 function getMergeToast(newLevel: number, streak: number) {
   let milestone = "";
-  if (newLevel === MAX_LEVEL) milestone = "豆包开始 Dance！";
+  if (newLevel === DANCE_LEVEL) milestone = "豆包开始 Dance！";
   else if (newLevel === 5) milestone = "卷起来！";
   else if (newLevel === 4) milestone = "开始认真工作";
   else if (newLevel === 3) milestone = "协作起来了";
 
-  if (newLevel === MAX_LEVEL || streak < 2) return milestone;
+  if (newLevel === DANCE_LEVEL || streak < 2) return milestone;
   const combo = streak >= 4 ? "超预期交付" : streak >= 3 ? "协同效率拉满" : "高效对齐";
   return milestone ? `${combo} · ${milestone}` : combo;
 }
@@ -701,7 +704,7 @@ export default function Home() {
         context.arc(-size * 0.3, -size * 0.02, radius * 0.07, 0, Math.PI * 2);
         context.arc(size * 0.3, -size * 0.02, radius * 0.07, 0, Math.PI * 2);
         context.fill();
-      } else {
+      } else if (level === DANCE_LEVEL) {
         const band = size * 0.17;
         [-0.48, 0, 0.48].forEach((offset, index) => {
           context.save();
@@ -712,6 +715,16 @@ export default function Home() {
           context.fill();
           context.restore();
         });
+      } else {
+        context.fillStyle = "#fff1d6";
+        context.beginPath();
+        context.arc(0, 0, size * 0.9, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = "#8f3d24";
+        context.font = `900 ${size * 0.72}px "PingFang SC", sans-serif`;
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText("包", 0, size * 0.06);
       }
       context.restore();
     };
@@ -736,7 +749,7 @@ export default function Home() {
       gradient.addColorStop(0, "#ffffff");
       gradient.addColorStop(0.1, level.color);
       gradient.addColorStop(1, level.accent);
-      if (ball.level === MAX_LEVEL) {
+      if (ball.level === DANCE_LEVEL) {
         const bubbleGradient = context.createRadialGradient(
           ball.x - radius * 0.38,
           ball.y - radius * 0.45,
@@ -750,6 +763,19 @@ export default function Home() {
         bubbleGradient.addColorStop(0.78, "rgba(112,146,255,.34)");
         bubbleGradient.addColorStop(1, "rgba(255,63,142,.28)");
         context.fillStyle = bubbleGradient;
+      } else if (ball.level === FINAL_LEVEL) {
+        const bunGradient = context.createRadialGradient(
+          ball.x - radius * 0.32,
+          ball.y - radius * 0.38,
+          radius * 0.08,
+          ball.x,
+          ball.y,
+          radius,
+        );
+        bunGradient.addColorStop(0, "rgba(255,255,255,.98)");
+        bunGradient.addColorStop(0.7, "rgba(255,244,218,.94)");
+        bunGradient.addColorStop(1, "rgba(218,159,93,.72)");
+        context.fillStyle = bunGradient;
       } else {
         context.fillStyle = hasIcon ? "#ffffff" : gradient;
       }
@@ -762,7 +788,7 @@ export default function Home() {
       context.stroke();
 
       if (hasIcon && icon) {
-        if (ball.level === MAX_LEVEL) {
+        if (ball.level === DANCE_LEVEL) {
           context.save();
           context.beginPath();
           context.arc(ball.x, ball.y, radius * 0.91, 0, Math.PI * 2);
@@ -788,9 +814,9 @@ export default function Home() {
         } else {
           context.save();
           context.beginPath();
-          context.arc(ball.x, ball.y, radius * 0.91, 0, Math.PI * 2);
+          context.arc(ball.x, ball.y, radius * (ball.level === FINAL_LEVEL ? 0.94 : 0.91), 0, Math.PI * 2);
           context.clip();
-          const size = radius * 1.92;
+          const size = radius * (ball.level === FINAL_LEVEL ? 1.72 : 1.92);
           context.drawImage(icon, ball.x - size / 2, ball.y - size / 2, size, size);
           context.restore();
         }
@@ -945,9 +971,9 @@ export default function Home() {
         }
         if (ball.y + radius > bottom) {
           ball.y = bottom - radius;
-          if (ball.vy > 80) ball.vy *= -0.12;
+          if (ball.vy > 25) ball.vy *= -0.16;
           else ball.vy = 0;
-          ball.vx *= 0.94;
+          ball.vx *= 0.965;
           ball.angularVelocity = ball.vx / Math.max(20, radius);
         }
       });
@@ -966,13 +992,17 @@ export default function Home() {
             const dy = second.y - first.y;
             const radiusFirst = levelRadius(first.level);
             const radiusSecond = levelRadius(second.level);
-            const minimum = radiusFirst + radiusSecond;
+            const contactPadding = getContactPadding(radiusFirst, radiusSecond);
+            const contactRadiusFirst = radiusFirst + contactPadding / 2;
+            const contactRadiusSecond = radiusSecond + contactPadding / 2;
+            const minimum = contactRadiusFirst + contactRadiusSecond;
             const distanceSquared = dx * dx + dy * dy;
             if (distanceSquared >= minimum * minimum) continue;
 
             if (
               iteration === 0 &&
               first.level === second.level &&
+              first.level < FINAL_LEVEL &&
               now - first.bornAt > 90 &&
               now - second.bornAt > 90
             ) {
@@ -987,7 +1017,7 @@ export default function Home() {
               missedMergeDropsRef.current = 0;
               const mergeStreak = mergeStreakRef.current;
 
-              if (first.level === MAX_LEVEL) {
+              if (first.level === DANCE_LEVEL) {
                 const riseFrom = mountainRiseRef.current;
                 peaksRef.current += 1;
                 mountainAnimationRef.current = {
@@ -996,13 +1026,25 @@ export default function Home() {
                   elapsed: 0,
                   duration: 720,
                 };
+                additions.push({
+                  id: nextIdRef.current++,
+                  level: FINAL_LEVEL,
+                  x: mergeX,
+                  y: mergeY,
+                  vx: mergeVelocityX * 0.45,
+                  vy: Math.min(-48, mergeVelocityY * 0.55),
+                  angle: (first.angle + second.angle) / 2,
+                  angularVelocity: (first.angularVelocity + second.angularVelocity) * 0.35,
+                  bornAt: now,
+                });
                 setPeaks(peaksRef.current);
                 syncAdjustments();
                 syncScore(300 + peaksRef.current * 80);
+                addParticles(mergeX, mergeY, "#f5d6a7", 14, 180);
                 addParticles(mergeX, mergeY, "#22d6ff", 15, 235);
                 addParticles(mergeX, mergeY, "#ff3f8e", 15, 235);
                 addParticles(mergeX, mergeY, "#ffffff", 10, 195);
-                showToast("OKR 完成！", 1450);
+                showToast("OKR 完成 · 豆包登顶！", 1550);
                 vibrate([35, 28, 70]);
                 playTone(523, 0.12, 0, 0.045);
                 playTone(659, 0.15, 0.09, 0.04);
@@ -1022,12 +1064,12 @@ export default function Home() {
                 });
                 syncAdjustments();
                 syncScore(LEVELS[newLevel].score);
-                if (newLevel === MAX_LEVEL) {
+                if (newLevel === DANCE_LEVEL) {
                   dancesRef.current += 1;
                   setDances(dancesRef.current);
                 }
                 const mergeMessage = getMergeToast(newLevel, mergeStreak);
-                if (mergeMessage) showToast(mergeMessage, newLevel === MAX_LEVEL ? 1250 : mergeStreak >= 2 ? 1100 : 900);
+                if (mergeMessage) showToast(mergeMessage, newLevel === DANCE_LEVEL ? 1250 : mergeStreak >= 2 ? 1100 : 900);
                 addParticles(mergeX, mergeY, LEVELS[newLevel].color, 10, 135 + newLevel * 11);
                 playTone(360 + newLevel * 72, 0.07 + newLevel * 0.012, 0, 0.025 + newLevel * 0.002);
                 vibrate(newLevel >= 5 ? [18, 20, 25] : 12);
@@ -1035,7 +1077,7 @@ export default function Home() {
               break;
             }
 
-            resolveCircleContact(first, second, radiusFirst, radiusSecond);
+            resolveCircleContact(first, second, contactRadiusFirst, contactRadiusSecond);
             constrainBodyToBoard(first, radiusFirst, width, bottom);
             constrainBodyToBoard(second, radiusSecond, width, bottom);
           }
@@ -1045,7 +1087,6 @@ export default function Home() {
       if (removed.size > 0) {
         ballsRef.current = balls.filter((ball) => !removed.has(ball.id)).concat(additions);
       }
-      stabilizeRestingPile(ballsRef.current, width, bottom, levelRadius);
 
       const lineY = dangerY();
       const overflowing = ballsRef.current.some((ball) => {
@@ -1092,7 +1133,7 @@ export default function Home() {
       lastFrameRef.current = now;
       if (!pausedRef.current) {
         updateMountainAnimation(elapsed);
-        const steps = 2;
+        const steps = getPhysicsSubsteps(ballsRef.current, elapsed, levelRadius);
         for (let index = 0; index < steps; index += 1) resolvePhysics(elapsed / steps, now);
       }
       drawScene(pausedRef.current ? 0 : elapsed);
@@ -1116,11 +1157,21 @@ export default function Home() {
   }, [vibrationEnabled]);
 
   useEffect(() => {
+    const restorePage = () => {
+      lastFrameRef.current = performance.now();
+      setShareState("idle");
+    };
     const handleVisibilityChange = () => {
-      if (!document.hidden) lastFrameRef.current = performance.now();
+      if (!document.hidden) restorePage();
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", restorePage);
+    window.addEventListener("pageshow", restorePage);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", restorePage);
+      window.removeEventListener("pageshow", restorePage);
+    };
   }, []);
 
   const saveUsername = async (event: FormEvent<HTMLFormElement>) => {
@@ -1191,12 +1242,16 @@ export default function Home() {
         errorCorrectionLevel: "H",
         color: { dark: "#10183A", light: "#FFFFFF" },
       });
-      const qrImage = new Image();
-      await new Promise<void>((resolve, reject) => {
-        qrImage.onload = () => resolve();
-        qrImage.onerror = () => reject(new Error("二维码生成失败"));
-        qrImage.src = qrDataUrl;
+      const loadImage = (src: string, message: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error(message));
+        image.src = src;
       });
+      const [qrImage, bunImage] = await Promise.all([
+        loadImage(qrDataUrl, "二维码生成失败"),
+        loadImage("/icons/level-08-real-doubao.png", "豆包图标加载失败"),
+      ]);
 
       const canvas = document.createElement("canvas");
       canvas.width = 1080;
@@ -1232,17 +1287,11 @@ export default function Home() {
         context.fill();
       };
 
-      const brandGradient = context.createLinearGradient(74, 56, 146, 128);
-      brandGradient.addColorStop(0, "#10183A");
+      const brandGradient = context.createLinearGradient(68, 54, 152, 138);
+      brandGradient.addColorStop(0, "#172249");
       brandGradient.addColorStop(1, "#3370FF");
       card(68, 54, 84, 84, 24, brandGradient);
-      ["#22D6FF", "#FFFFFF", "#FF3F8E"].forEach((color, index) => {
-        context.save();
-        context.translate(88 + (index === 0 ? 8 : index === 2 ? -8 : 0), 77 + index * 20);
-        context.transform(1, 0, -0.22, 1, 0, 0);
-        card(0, 0, 44, 8, 5, color);
-        context.restore();
-      });
+      context.drawImage(bunImage, 73, 59, 74, 74);
       context.fillStyle = "#3370FF";
       context.font = "800 22px Inter, PingFang SC, sans-serif";
       context.fillText("ORGANIZATION LAB", 178, 84);
@@ -1334,7 +1383,7 @@ export default function Home() {
       context.fillText("SCAN TO PLAY", 454, 1052);
       context.fillStyle = "#FFFFFF";
       context.font = "900 43px Inter, PingFang SC, sans-serif";
-      context.fillText("扫码加入组织碰撞实验", 454, 1120);
+      context.fillText("扫码加入合成大豆包", 454, 1120);
       context.fillStyle = "rgba(255,255,255,.72)";
       context.font = "650 22px Inter, PingFang SC, sans-serif";
       context.fillText("两个相同图标碰撞，合成你的字节范儿", 454, 1170);
@@ -1352,9 +1401,20 @@ export default function Home() {
         canvas.toBlob((value) => value ? resolve(value) : reject(new Error("分享图片生成失败")), "image/png");
       });
       const file = new File([blob], `合成大豆包-${usernameRef.current}-年度总结.png`, { type: "image/png" });
+      canvas.width = 1;
+      canvas.height = 1;
 
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ title: "合成大豆包年度总结", text, files: [file] });
+        const nativeShare = navigator.share({ title: "合成大豆包年度总结", text, files: [file] });
+        setShareState("done");
+        window.setTimeout(() => setShareState("idle"), 2200);
+        void nativeShare.catch((error: unknown) => {
+          if (!(error instanceof DOMException && error.name === "AbortError")) setShareState("error");
+        }).finally(() => {
+          lastFrameRef.current = performance.now();
+          window.setTimeout(() => setShareState("idle"), 800);
+        });
+        return;
       } else {
         const objectUrl = URL.createObjectURL(blob);
         const download = document.createElement("a");
@@ -1379,7 +1439,10 @@ export default function Home() {
   return (
     <main className="game-shell">
       <header className="game-header">
-        <div className="brand-mark" aria-hidden="true"><span /><span /><span /></div>
+        <div className="brand-mark" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/level-08-real-doubao.png" alt="" />
+        </div>
         <div className="title-group">
           <p className="eyebrow">ORGANIZATION LAB</p>
           <h1>合成大豆包</h1>
@@ -1462,7 +1525,7 @@ export default function Home() {
       </section>
 
       <div className="game-footer">
-        <p>两个最高级图标相遇后消失，高峰升起，空间缩小</p>
+        <p>两个 Doubao Dance 相遇后合成大豆包，高峰升起，空间缩小</p>
         <span>持续越过警戒线 2.5 秒，本年度结束</span>
       </div>
 

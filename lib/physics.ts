@@ -8,9 +8,32 @@ export type CircleBody = {
   angularVelocity: number;
 };
 
-export const CONTACT_SOLVER_ITERATIONS = 4;
+export const CONTACT_SOLVER_ITERATIONS = 6;
 export const CONTACT_SLOP = 0.08;
 export const POSITION_CORRECTION = 0.72;
+
+export function getContactPadding(radiusFirst: number, radiusSecond: number) {
+  const smaller = Math.min(radiusFirst, radiusSecond);
+  const larger = Math.max(radiusFirst, radiusSecond);
+  if (smaller <= 0 || larger / smaller < 2.5) return 0;
+  return Math.min(2.5, Math.max(1.5, larger * 0.035));
+}
+
+export function getPhysicsSubsteps(
+  bodies: CircleBody[],
+  elapsed: number,
+  radiusForLevel: (level: number) => number,
+) {
+  if (bodies.length === 0) return 2;
+  let maximumTravel = 0;
+  let smallestRadius = Number.POSITIVE_INFINITY;
+  bodies.forEach((body) => {
+    maximumTravel = Math.max(maximumTravel, Math.hypot(body.vx, body.vy) * elapsed);
+    smallestRadius = Math.min(smallestRadius, radiusForLevel(body.level));
+  });
+  const safeTravel = Math.max(7, smallestRadius * 0.45);
+  return Math.min(5, Math.max(2, Math.ceil(maximumTravel / safeTravel)));
+}
 
 export function constrainBodyToBoard(
   body: CircleBody,
@@ -20,15 +43,12 @@ export function constrainBodyToBoard(
 ) {
   if (body.x - radius < 0) {
     body.x = radius;
-    if (body.vx < 0) body.vx = 0;
   } else if (body.x + radius > width) {
     body.x = width - radius;
-    if (body.vx > 0) body.vx = 0;
   }
 
   if (body.y + radius > bottom) {
     body.y = bottom - radius;
-    if (body.vy > 0) body.vy = 0;
   }
 }
 
@@ -52,19 +72,24 @@ export function resolveCircleContact(
   const massSecond = radiusSecond * radiusSecond;
   const totalMass = massFirst + massSecond;
   const correction = Math.max(0, overlap - CONTACT_SLOP) * POSITION_CORRECTION;
+  const rawFirstWeight = massSecond / totalMass;
+  // A tiny body trapped beside a very large one must not absorb the entire
+  // correction. Giving both bodies a minimum share prevents visual clipping.
+  const firstWeight = Math.min(0.84, Math.max(0.16, rawFirstWeight));
+  const secondWeight = 1 - firstWeight;
 
-  first.x -= nx * correction * (massSecond / totalMass);
-  first.y -= ny * correction * (massSecond / totalMass);
-  second.x += nx * correction * (massFirst / totalMass);
-  second.y += ny * correction * (massFirst / totalMass);
+  first.x -= nx * correction * firstWeight;
+  first.y -= ny * correction * firstWeight;
+  second.x += nx * correction * secondWeight;
+  second.y += ny * correction * secondWeight;
 
   const relativeVelocityX = second.vx - first.vx;
   const relativeVelocityY = second.vy - first.vy;
   const velocityAlongNormal = relativeVelocityX * nx + relativeVelocityY * ny;
   if (velocityAlongNormal < 0) {
-    // Only energetic impacts bounce. Resting contacts are inelastic so gravity
-    // cannot keep re-introducing visible motion into a settled pile.
-    const restitution = velocityAlongNormal < -120 ? 0.1 : 0;
+    // Keep the original playful response even for gentle contacts. Stability is
+    // handled by substeps and position correction instead of erasing motion.
+    const restitution = 0.12;
     const impulse = (-(1 + restitution) * velocityAlongNormal) / (1 / massFirst + 1 / massSecond);
     const impulseX = impulse * nx;
     const impulseY = impulse * ny;
@@ -75,39 +100,4 @@ export function resolveCircleContact(
   }
 
   return true;
-}
-
-export function stabilizeRestingPile(
-  bodies: CircleBody[],
-  width: number,
-  bottom: number,
-  radiusForLevel: (level: number) => number,
-) {
-  bodies.forEach((body) => {
-    constrainBodyToBoard(body, radiusForLevel(body.level), width, bottom);
-  });
-
-  bodies.forEach((body) => {
-    const radius = radiusForLevel(body.level);
-    const onFloor = bottom - (body.y + radius) <= 0.9;
-    const supportedByBody = bodies.some((other) => {
-      if (other.id === body.id || other.y <= body.y) return false;
-      const dx = other.x - body.x;
-      const dy = other.y - body.y;
-      const distance = Math.hypot(dx, dy);
-      if (distance <= 0.001 || distance > radius + radiusForLevel(other.level) + 1.1) return false;
-      return dy / distance > 0.42;
-    });
-
-    if (!onFloor && !supportedByBody) return;
-    if (Math.abs(body.vx) <= 5 && Math.abs(body.vy) <= 14) {
-      body.vx = 0;
-      body.vy = 0;
-      body.angularVelocity = 0;
-      return;
-    }
-
-    body.vx *= 0.9;
-    body.angularVelocity *= 0.82;
-  });
 }

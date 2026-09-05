@@ -39,8 +39,12 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
 
   assert.match(page, /const DANGER_DURATION = 2500/);
   assert.match(page, /CONTACT_SOLVER_ITERATIONS/);
-  assert.match(page, /stabilizeRestingPile/);
-  assert.match(page, /first\.level === MAX_LEVEL/);
+  assert.doesNotMatch(page, /stabilizeRestingPile/);
+  assert.match(page, /first\.level === DANCE_LEVEL/);
+  assert.match(page, /first\.level < FINAL_LEVEL/);
+  assert.match(page, /level: FINAL_LEVEL/);
+  assert.match(page, /getContactPadding/);
+  assert.match(page, /getPhysicsSubsteps/);
   assert.match(page, /peaksRef\.current \+= 1/);
   assert.match(page, /peakCount \* height \* 0\.1/);
   assert.match(page, /duration: 720/);
@@ -52,11 +56,16 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   assert.match(page, /getPerformanceRating/);
   assert.match(page, /高效对齐/);
   assert.match(page, /非核心环节延后处理/);
-  assert.match(page, /OKR 完成！/);
   assert.match(page, /卷起来！/);
   assert.doesNotMatch(page, /完成调整，开始登山/);
   assert.doesNotMatch(page, /见证 \$\{dances\} 次豆包 Dance/);
   assert.match(page, /context\.strokeText\("勇 攀 高 峰"/);
+  assert.match(page, /OKR 完成 · 豆包登顶！/);
+  assert.match(page, /扫码加入合成大豆包/);
+  assert.doesNotMatch(page, /扫码加入组织碰撞实验/);
+  assert.match(page, /const nativeShare = navigator\.share/);
+  assert.match(page, /window\.addEventListener\("pageshow", restorePage\)/);
+  assert.match(page, /<img src="\/icons\/level-08-real-doubao\.png" alt=""/);
   assert.doesNotMatch(page, /图标槽位已预留/);
   assert.match(layout, /viewportFit: "cover"/);
   assert.match(styles, /--playfield-top: #dbe4f4/);
@@ -64,6 +73,7 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   assert.doesNotMatch(styles, /linear-gradient\(180deg, #ffffff 0%, #f5f7ff 100%\)/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(iconGuide, /level-07-doubao-dance\.png/);
+  assert.match(iconGuide, /level-08-real-doubao\.png/);
   await Promise.all([
     "level-01-mira.png",
     "level-02-aime.png",
@@ -72,6 +82,7 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
     "level-05-doubao-work.png",
     "level-06-doubao.png",
     "level-07-doubao-dance.png",
+    "level-08-real-doubao.png",
   ].map((filename) => access(new URL(`../public/icons/${filename}`, import.meta.url))));
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
@@ -93,7 +104,7 @@ test("keeps first-entry alias, result-card sharing, and shared leaderboard capab
   assert.match(page, /\/api\/leaderboard/);
   assert.match(page, /method: "PUT"/);
   assert.match(page, /QRCode\.toDataURL/);
-  assert.match(page, /扫码加入组织碰撞实验/);
+  assert.match(page, /扫码加入合成大豆包/);
   assert.match(page, /navigator\.canShare/);
   assert.match(page, /分享图包含本局成绩和游戏二维码/);
   assert.match(page, /字节范儿排行榜/);
