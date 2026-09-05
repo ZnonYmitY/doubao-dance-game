@@ -1,11 +1,11 @@
 export type PerformanceRating = "E" | "M+" | "M" | "M-" | "I";
 
 export const PERFORMANCE_BANDS = [
-  { rating: "I", scoreMin: 0, scoreMax: 1_799, peakMin: null },
-  { rating: "M-", scoreMin: 1_800, scoreMax: 3_499, peakMin: null },
-  { rating: "M", scoreMin: 3_500, scoreMax: 4_999, peakMin: 1 },
-  { rating: "M+", scoreMin: 5_000, scoreMax: 6_499, peakMin: 2 },
-  { rating: "E", scoreMin: 6_500, scoreMax: Number.POSITIVE_INFINITY, peakMin: 3 },
+  { rating: "I", scoreMin: 0, scoreMax: 2_999, peakMin: null },
+  { rating: "M-", scoreMin: 3_000, scoreMax: 3_999, peakMin: 1 },
+  { rating: "M", scoreMin: 4_000, scoreMax: 4_999, peakMin: 1 },
+  { rating: "M+", scoreMin: 5_000, scoreMax: 5_999, peakMin: 2 },
+  { rating: "E", scoreMin: 6_000, scoreMax: Number.POSITIVE_INFINITY, peakMin: 3 },
 ] as const satisfies ReadonlyArray<{
   rating: PerformanceRating;
   scoreMin: number;
@@ -14,11 +14,11 @@ export const PERFORMANCE_BANDS = [
 }>;
 
 export function getPerformanceRating(score: number, peaks = 0): PerformanceRating {
-  if (score >= 6_500 || peaks >= 3) return "E";
-  if (score >= 5_000 || peaks >= 2) return "M+";
-  if (score >= 3_500 || peaks >= 1) return "M";
-  if (score >= 1_800) return "M-";
-  return "I";
+  if (peaks >= 3 || (peaks > 0 && score >= 6_000)) return "E";
+  if (peaks >= 2 || (peaks > 0 && score >= 5_000)) return "M+";
+  if (peaks === 0 || score < 3_000) return "I";
+  if (score >= 4_000) return "M";
+  return "M-";
 }
 
 export function getPerformanceSummary(score: number, peaks = 0) {

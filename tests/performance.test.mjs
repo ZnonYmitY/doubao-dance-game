@@ -5,22 +5,28 @@ import { getPerformanceRating } from "../lib/performance.ts";
 test("uses the requested score performance bands", () => {
   const cases = [
     [0, "I"],
-    [1_799, "I"],
-    [1_800, "M-"],
-    [3_499, "M-"],
-    [3_500, "M"],
+    [2_999, "I"],
+    [3_000, "M-"],
+    [3_999, "M-"],
+    [4_000, "M"],
     [4_999, "M"],
     [5_000, "M+"],
-    [6_499, "M+"],
-    [6_500, "E"],
+    [5_999, "M+"],
+    [6_000, "E"],
   ];
 
-  for (const [score, rating] of cases) assert.equal(getPerformanceRating(score), rating);
+  for (const [score, rating] of cases) assert.equal(getPerformanceRating(score, 1), rating);
 });
 
-test("uses peak count as a minimum performance override", () => {
-  assert.equal(getPerformanceRating(0, 1), "M");
+test("requires a peak outside the peak-count overrides", () => {
+  assert.equal(getPerformanceRating(6_000, 0), "I");
+  assert.equal(getPerformanceRating(2_999, 1), "I");
+  assert.equal(getPerformanceRating(3_000, 1), "M-");
+  assert.equal(getPerformanceRating(4_000, 1), "M");
+});
+
+test("uses two and three peaks as minimum performance overrides", () => {
   assert.equal(getPerformanceRating(1_800, 2), "M+");
   assert.equal(getPerformanceRating(0, 3), "E");
-  assert.equal(getPerformanceRating(6_499, 0), "M+");
+  assert.equal(getPerformanceRating(6_000, 2), "E");
 });

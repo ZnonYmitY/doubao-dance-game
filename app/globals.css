@@ -147,8 +147,7 @@ h1 {
   backdrop-filter: blur(12px);
 }
 
-.rank-button,
-.data-button {
+.rank-button {
   width: 42px;
   height: 42px;
   display: grid;
@@ -163,33 +162,16 @@ h1 {
   cursor: pointer;
 }
 
-.rank-button b,
-.data-button b {
+.rank-button b {
   font-size: 13px;
   line-height: 1;
 }
 
-.rank-button span,
-.data-button span {
+.rank-button span {
   margin-top: 2px;
   color: rgba(255, 255, 255, 0.78);
   font-size: 7px;
   line-height: 1;
-}
-
-.data-button {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-content: center;
-  gap: 0;
-  padding: 0;
-  color: white;
-  border: 0;
-  border-radius: 14px;
-  background: linear-gradient(145deg, #12bfa6, #3370ff 72%);
-  box-shadow: 0 8px 22px rgba(18, 191, 166, 0.2);
-  cursor: pointer;
 }
 
 .icon-button span {
@@ -762,15 +744,6 @@ h1 {
   padding: 22px 18px 18px;
 }
 
-.analytics-backdrop {
-  z-index: 45;
-  place-items: center;
-}
-
-.analytics-modal {
-  width: min(100%, 590px);
-}
-
 .analytics-note {
   margin: 5px 0 0;
   color: var(--muted);
@@ -790,6 +763,49 @@ h1 {
 
 .analytics-state.is-error {
   color: #b82a5f;
+}
+
+.analytics-page-shell {
+  width: min(100%, 720px);
+  min-height: 100svh;
+  margin: 0 auto;
+  padding:
+    max(24px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(28px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+}
+
+.analytics-page-card {
+  padding: clamp(18px, 4vw, 30px);
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 24px 70px rgba(37, 52, 95, 0.13);
+  backdrop-filter: blur(18px);
+}
+
+.analytics-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.analytics-page-header h1 {
+  margin: 0;
+}
+
+.analytics-page-header a {
+  flex: 0 0 auto;
+  padding: 10px 13px;
+  border-radius: 12px;
+  color: white;
+  background: linear-gradient(135deg, var(--blue), #7159ff);
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 .analytics-cards {
@@ -924,6 +940,16 @@ h1 {
 .leaderboard-heading {
   margin-bottom: 12px;
   padding-inline: 4px;
+}
+
+.leaderboard-notice {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: #35558d;
+  background: rgba(51, 112, 255, 0.08);
+  font-size: 8px;
+  text-align: center;
 }
 
 .leaderboard-heading p:last-child {
@@ -1489,7 +1515,6 @@ h1 {
 
   .brand-mark,
   .rank-button,
-  .data-button,
   .icon-button {
     width: 38px;
     height: 38px;

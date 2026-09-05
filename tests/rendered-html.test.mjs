@@ -98,9 +98,10 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
 
-test("keeps first-entry alias, WeChat-safe sharing, analytics, and shared leaderboard capability", async () => {
-  const [page, route, analyticsRoute, schema, initialMigration, aliasMigration, analyticsMigration, hosting, pagesWorkflow, pagesConfig, apiWorker] = await Promise.all([
+test("keeps first-entry alias, WeChat-safe sharing, hidden analytics, and resilient leaderboard capability", async () => {
+  const [page, analyticsPage, route, analyticsRoute, schema, initialMigration, aliasMigration, analyticsMigration, hosting, pagesWorkflow, pagesConfig, apiWorker, publicApi] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/analytics/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/leaderboard/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/analytics/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
@@ -111,6 +112,7 @@ test("keeps first-entry alias, WeChat-safe sharing, analytics, and shared leader
     readFile(new URL("../.github/workflows/deploy-pages.yml", import.meta.url), "utf8"),
     readFile(new URL("../vite.pages.config.ts", import.meta.url), "utf8"),
     readFile(new URL("../api-worker/index.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/public-api.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /先取一个花名/);
@@ -126,14 +128,20 @@ test("keeps first-entry alias, WeChat-safe sharing, analytics, and shared leader
   assert.match(page, /微信内请长按图片保存/);
   assert.match(page, /微信好友/);
   assert.match(page, /朋友圈/);
-  assert.match(page, /PUBLIC_GAME_URL = "https:\/\/znonymity\.github\.io\/doubao-dance-game\/"/);
-  assert.match(page, /PUBLIC_API_BASE = "https:\/\/doubao-dance-api\.znonymity-piasnews\.workers\.dev"/);
-  assert.match(page, /查看数据看板/);
+  assert.match(publicApi, /PUBLIC_GAME_URL = "https:\/\/znonymity\.github\.io\/doubao-dance-game\/"/);
+  assert.match(publicApi, /PUBLIC_API_BASE = "https:\/\/doubao-dance-api\.znonymity-piasnews\.workers\.dev"/);
+  assert.doesNotMatch(page, /查看数据看板|data-button/);
+  assert.match(analyticsPage, /合成大豆包数据看板/);
+  assert.match(analyticsPage, /独立统计页/);
+  assert.match(pagesConfig, /github-pages-src\/analytics\/index\.html/);
   assert.match(page, /eventType: "game_start"/);
   assert.match(page, /eventType: "share"/);
   assert.match(page, /分享图包含本局成绩和游戏二维码/);
   assert.match(page, /字节范儿排行榜/);
   assert.match(page, /全服第 \{myRank\} 名/);
+  assert.match(page, /fetchLeaderboardWithJsonp/);
+  assert.match(page, /网络波动，当前显示最近一次同步结果/);
+  assert.doesNotMatch(page, /setLeaderboardError\(error instanceof Error \? error\.message/);
   assert.match(route, /\^\[\\p\{Script=Han\}\]\{2,3\}\$/);
   assert.match(route, /export async function PUT/);
   assert.match(route, /ON CONFLICT\(player_id\) DO UPDATE/);
@@ -146,11 +154,13 @@ test("keeps first-entry alias, WeChat-safe sharing, analytics, and shared leader
   assert.match(analyticsRoute, /COUNT\(DISTINCT player_id\)/);
   assert.match(analyticsRoute, /GROUP BY channel/);
   assert.match(analyticsMigration, /INSERT OR IGNORE INTO `game_sessions`/);
-  assert.match(analyticsMigration, /WHEN `best_score` >= 6500 OR `best_peaks` >= 3 THEN 'E'/);
+  assert.match(analyticsMigration, /WHEN `best_peaks` >= 3 OR \(`best_peaks` > 0 AND `best_score` >= 6000\) THEN 'E'/);
   assert.match(pagesWorkflow, /actions\/deploy-pages@v4/);
   assert.match(pagesConfig, /base: "\/doubao-dance-game\/"/);
   assert.match(apiWorker, /Access-Control-Allow-Origin/);
   assert.match(apiWorker, /\/api\/analytics/);
+  assert.match(apiWorker, /application\/javascript/);
+  assert.match(apiWorker, /Invalid callback/);
   assert.match(initialMigration, /CREATE TABLE `leaderboard_entries`/);
   assert.match(initialMigration, /PRAGMA optimize/);
   assert.match(aliasMigration, /CREATE UNIQUE INDEX `idx_leaderboard_username_unique`/);

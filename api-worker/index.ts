@@ -53,6 +53,16 @@ function json(request: Request, data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: corsHeaders(request) });
 }
 
+function jsonp(request: Request, data: unknown, callback: string) {
+  return new Response(`${callback}(${JSON.stringify(data)});`, {
+    status: 200,
+    headers: {
+      ...corsHeaders(request),
+      "Content-Type": "application/javascript; charset=utf-8",
+    },
+  });
+}
+
 function normalizeUsername(value: unknown) {
   if (typeof value !== "string") return null;
   const username = value.trim();
@@ -96,7 +106,14 @@ function routeError(request: Request, error: unknown) {
 
 async function leaderboard(request: Request, db: D1Database) {
   try {
-    if (request.method === "GET") return json(request, { entries: await readTopEntries(db) });
+    if (request.method === "GET" || request.method === "HEAD") {
+      const data = { entries: await readTopEntries(db) };
+      const callback = new URL(request.url).searchParams.get("callback");
+      if (callback && !/^[a-zA-Z_$][a-zA-Z0-9_$]{0,80}$/.test(callback)) {
+        return json(request, { error: "Invalid callback" }, 400);
+      }
+      return callback ? jsonp(request, data, callback) : json(request, data);
+    }
     const payload = (await request.json()) as ScorePayload;
     const playerId = readId(payload.playerId);
     const username = normalizeUsername(payload.username);

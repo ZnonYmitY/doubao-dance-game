@@ -15,5 +15,11 @@ export default defineConfig({
   build: {
     outDir: "../dist/pages",
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        game: path.resolve(import.meta.dirname, "github-pages-src/index.html"),
+        analytics: path.resolve(import.meta.dirname, "github-pages-src/analytics/index.html"),
+      },
+    },
   },
 });
