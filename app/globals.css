@@ -590,51 +590,6 @@ h1 {
   font-size: 9px;
 }
 
-.share-launch-card {
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 11px 12px;
-  border: 1px solid rgba(51, 112, 255, 0.12);
-  border-radius: 16px;
-  background: linear-gradient(110deg, rgba(34, 214, 255, 0.08), rgba(51, 112, 255, 0.09), rgba(255, 63, 142, 0.07));
-  box-shadow: 0 10px 22px rgba(41, 55, 99, 0.05);
-}
-
-.share-launch-card div {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-}
-
-.share-launch-card b {
-  color: var(--ink-soft);
-  font-size: 11px;
-  font-weight: 850;
-}
-
-.share-launch-card span {
-  color: var(--muted);
-  font-size: 8px;
-  line-height: 1.45;
-}
-
-.share-launch-card button {
-  flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 11px;
-  color: white;
-  background: linear-gradient(120deg, #ff3f8e, #7159ff 56%, #3370ff);
-  box-shadow: 0 8px 16px rgba(51, 112, 255, 0.18);
-  font-size: 9px;
-  font-weight: 850;
-  cursor: pointer;
-}
-
 .game-footer p {
   margin: 0;
 }
@@ -1691,15 +1646,6 @@ h1 {
 
   .game-footer > span {
     display: none;
-  }
-
-  .share-launch-card {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .share-launch-card button {
-    width: 100%;
   }
 
   .game-footer {

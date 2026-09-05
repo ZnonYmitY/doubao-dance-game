@@ -1645,16 +1645,6 @@ export default function Home() {
         </div>
       </section>
 
-      {started && !gameOver && (
-        <section className="share-launch-card" aria-label="游戏中分享入口">
-          <div>
-            <b>玩着也能分享</b>
-            <span>二维码 + 文案，随时邀请同事来一局</span>
-          </div>
-          <button type="button" onClick={() => void openInviteShare()}>分享本局</button>
-        </section>
-      )}
-
       <section className="play-layout">
         <div className="next-card" aria-label={`下一个图标：${LEVELS[nextLevel].name}`}>
           <span>下一个</span>
