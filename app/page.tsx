@@ -11,6 +11,7 @@ import {
   type PointerEvent,
 } from "react";
 import QRCode from "qrcode";
+import { getPerformanceRating, getPerformanceSummary } from "@/lib/performance";
 import {
   CONTACT_SOLVER_ITERATIONS,
   constrainBodyToBoard,
@@ -69,6 +70,17 @@ type LeaderboardEntry = {
   rating: string;
 };
 
+type AnalyticsSummary = {
+  totalPlayers: number;
+  totalSessions: number;
+  totalShares: number;
+  channels: Array<{ channel: string; count: number }>;
+  daily: Array<{ day: string; sessions: number; shares: number }>;
+  updatedAt: string;
+};
+
+type ShareChannel = "wechat_friend" | "wechat_moments" | "system_share" | "download" | "copy_link";
+
 const LEVELS: Level[] = [
   { name: "Mira", key: "mira", color: "#20d8ff", accent: "#127cfe", radius: 19, score: 2, symbol: "✦", icon: "/icons/level-01-mira.png" },
   { name: "AIME", key: "aime", color: "#7259ff", accent: "#4b32c5", radius: 24, score: 4, symbol: "◆", icon: "/icons/level-02-aime.png" },
@@ -87,6 +99,16 @@ const FINAL_LEVEL = 7;
 const DROP_COOLDOWN = 430;
 const DANGER_DURATION = 2500;
 const DROP_POOL = [0, 0, 0, 0, 1, 1, 2];
+const PUBLIC_API_BASE = "https://doubao-dance-api.znonymity-piasnews.workers.dev";
+const PUBLIC_GAME_URL = "https://znonymity.github.io/doubao-dance-game/";
+const CHANNEL_LABELS: Record<string, string> = {
+  wechat_friend: "微信好友",
+  wechat_moments: "朋友圈",
+  system_share: "系统分享",
+  download: "下载图片",
+  copy_link: "复制链接",
+  other: "其他渠道",
+};
 
 const pickDropLevel = () => DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
 
@@ -109,6 +131,28 @@ function writeLocalValue(key: string, value: string) {
 function createPlayerId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `player-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function createTrackingId(prefix: string) {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return `${prefix}-${crypto.randomUUID()}`;
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function publicAsset(path: string) {
+  const base = import.meta.env.BASE_URL || "/";
+  return `${base.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+}
+
+function apiUrl(path: string) {
+  if (typeof window !== "undefined" && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)) return path;
+  return `${PUBLIC_API_BASE}${path}`;
+}
+
+function gameShareUrl() {
+  if (typeof window !== "undefined" && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)) {
+    return new URL(import.meta.env.BASE_URL || "/", window.location.origin).href;
+  }
+  return PUBLIC_GAME_URL;
 }
 
 function normalizeUsername(value: string) {
@@ -144,7 +188,7 @@ function LevelBadge({ levelIndex, compact = false }: { levelIndex: number; compa
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             className={hasImage ? "is-visible" : ""}
-            src={level.icon}
+            src={publicAsset(level.icon)}
             alt=""
             onLoad={() => setImageFailed(false)}
             onError={() => setImageFailed(true)}
@@ -157,23 +201,6 @@ function LevelBadge({ levelIndex, compact = false }: { levelIndex: number; compa
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("zh-CN").format(value);
-}
-
-function getPerformanceRating(score: number, peaks: number, dances: number) {
-  if (peaks >= 3 || score >= 6000) return "E";
-  if (peaks >= 2 || score >= 3800) return "M+";
-  if (peaks >= 1 || score >= 1800) return "M";
-  if (dances >= 1 || score >= 700) return "M-";
-  return "I";
-}
-
-function getSummaryLine(score: number, peaks: number, dances: number) {
-  const rating = getPerformanceRating(score, peaks, dances);
-  if (rating === "E") return "年度超额交付，字节范儿拉满";
-  if (rating === "M+") return "高效对齐，持续拿结果";
-  if (rating === "M") return "关键路径跑通，组织效能稳定";
-  if (rating === "M-") return "核心目标基本达成";
-  return "年度目标仍在对齐中";
 }
 
 function getMergeToast(newLevel: number, streak: number) {
@@ -225,6 +252,12 @@ export default function Home() {
   const mergeStreakRef = useRef(0);
   const missedMergeDropsRef = useRef(0);
   const sessionIdRef = useRef(0);
+  const analyticsSessionIdRef = useRef("");
+  const analyticsSessionTrackedRef = useRef(false);
+  const sourceChannelRef = useRef("direct");
+  const shareFileRef = useRef<File | null>(null);
+  const shareFilenameRef = useRef("合成大豆包-年度总结.png");
+  const shareTextRef = useRef("");
 
   const [score, setScore] = useState(0);
   const [adjustments, setAdjustments] = useState(0);
@@ -252,6 +285,12 @@ export default function Home() {
   const [myRank, setMyRank] = useState<number | null>(null);
   const [scoreSyncState, setScoreSyncState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [shareState, setShareState] = useState<"idle" | "creating" | "done" | "error">("idle");
+  const [sharePreviewUrl, setSharePreviewUrl] = useState("");
+  const [shareHint, setShareHint] = useState("长按图片可直接保存到手机相册");
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState("");
+  const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
 
   const syncScore = useCallback((delta: number) => {
     scoreRef.current += delta;
@@ -328,7 +367,7 @@ export default function Home() {
     setLeaderboardLoading(true);
     setLeaderboardError("");
     try {
-      const response = await fetch("/api/leaderboard", { cache: "no-store" });
+      const response = await fetch(apiUrl("/api/leaderboard"), { cache: "no-store" });
       const data = await response.json() as { entries?: LeaderboardEntry[]; error?: string };
       if (!response.ok || !data.entries) throw new Error(data.error || "排行榜暂时不可用");
       setLeaderboardEntries(data.entries);
@@ -341,7 +380,7 @@ export default function Home() {
 
   const claimAlias = useCallback(async (playerId: string, alias: string) => {
     try {
-      const response = await fetch("/api/leaderboard", {
+      const response = await fetch(apiUrl("/api/leaderboard"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId, username: alias }),
@@ -362,7 +401,7 @@ export default function Home() {
     if (!usernameRef.current || !playerIdRef.current) return;
     setScoreSyncState("saving");
     try {
-      const response = await fetch("/api/leaderboard", {
+      const response = await fetch(apiUrl("/api/leaderboard"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -378,6 +417,31 @@ export default function Home() {
       setScoreSyncState("saved");
     } catch {
       setScoreSyncState("error");
+    }
+  }, []);
+
+  const postAnalytics = useCallback(async (payload: Record<string, string>) => {
+    if (!playerIdRef.current) return;
+    await fetch(apiUrl("/api/analytics"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playerId: playerIdRef.current, ...payload }),
+      keepalive: true,
+    }).catch(() => undefined);
+  }, []);
+
+  const loadAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    setAnalyticsError("");
+    try {
+      const response = await fetch(apiUrl("/api/analytics"), { cache: "no-store" });
+      const data = await response.json() as AnalyticsSummary & { error?: string };
+      if (!response.ok || typeof data.totalPlayers !== "number") throw new Error(data.error || "数据看板暂时不可用");
+      setAnalyticsSummary(data);
+    } catch (error) {
+      setAnalyticsError(error instanceof Error ? error.message : "数据看板暂时不可用");
+    } finally {
+      setAnalyticsLoading(false);
     }
   }, []);
 
@@ -425,6 +489,8 @@ export default function Home() {
     mergeStreakRef.current = 0;
     missedMergeDropsRef.current = 0;
     gameOverRef.current = false;
+    analyticsSessionIdRef.current = createTrackingId("session");
+    analyticsSessionTrackedRef.current = false;
     pausedRef.current = false;
     activePointerIdRef.current = null;
     const first = pickDropLevel();
@@ -442,6 +508,8 @@ export default function Home() {
     setGameOver(false);
     setSettingsOpen(false);
     setShareState("idle");
+    setSharePreviewUrl("");
+    shareFileRef.current = null;
     setMyRank(null);
     setScoreSyncState("idle");
     setToast("");
@@ -452,6 +520,14 @@ export default function Home() {
     const now = performance.now();
     if (now - lastDropRef.current < DROP_COOLDOWN) return;
     const level = currentLevelRef.current;
+    if (!analyticsSessionTrackedRef.current) {
+      analyticsSessionTrackedRef.current = true;
+      void postAnalytics({
+        eventType: "game_start",
+        sessionId: analyticsSessionIdRef.current,
+        sourceChannel: sourceChannelRef.current,
+      });
+    }
     const radius = levelRadius(level);
     const width = dimensionsRef.current.width;
     const x = Math.max(radius + 3, Math.min(width - radius - 3, aimXRef.current));
@@ -491,7 +567,7 @@ export default function Home() {
     currentLevelRef.current = upcoming;
     nextLevelRef.current = following;
     setNextLevel(following);
-  }, [levelRadius, playTone, showToast, vibrate]);
+  }, [levelRadius, playTone, postAnalytics, showToast, vibrate]);
 
   const setAimFromClientX = useCallback((clientX: number) => {
     const board = boardRef.current;
@@ -547,6 +623,7 @@ export default function Home() {
     const storedUsername = normalizeUsername(readLocalValue("doubao-dance-username") || "");
     const storedAliasIsValid = isValidAlias(storedUsername);
     const storedPlayerId = readLocalValue("doubao-dance-player-id") || createPlayerId();
+    const sourceChannel = new URLSearchParams(window.location.search).get("from")?.toLowerCase() ?? "direct";
     const first = pickDropLevel();
     const next = pickDropLevel();
     const hydrationFrame = window.requestAnimationFrame(() => {
@@ -561,6 +638,9 @@ export default function Home() {
       setNextLevel(next);
       usernameRef.current = storedAliasIsValid ? storedUsername : "";
       playerIdRef.current = storedPlayerId;
+      analyticsSessionIdRef.current = createTrackingId("session");
+      analyticsSessionTrackedRef.current = false;
+      sourceChannelRef.current = /^[a-z0-9_-]{1,32}$/.test(sourceChannel) ? sourceChannel : "direct";
       setUsername(storedAliasIsValid ? storedUsername : "");
       setUsernameDraft(storedAliasIsValid ? storedUsername : "");
       setProfileReady(true);
@@ -583,7 +663,7 @@ export default function Home() {
       const image = new Image();
       image.onload = () => { iconsRef.current[index] = image; };
       image.onerror = () => { iconsRef.current[index] = null; };
-      image.src = level.icon;
+      image.src = publicAsset(level.icon);
       return null;
     });
 
@@ -1151,7 +1231,7 @@ export default function Home() {
     setUsernameSaving(true);
     const result = await claimAlias(playerIdRef.current, nextUsername);
     setUsernameSaving(false);
-    if (!result.ok) {
+    if (!result.ok && result.status !== 0) {
       setUsernameError(result.error);
       return;
     }
@@ -1160,6 +1240,7 @@ export default function Home() {
     setUsernameDraft(nextUsername);
     setUsernameError("");
     writeLocalValue("doubao-dance-username", nextUsername);
+    if (result.status === 0) showToast("已离线进入，联网后自动同步排行榜", 1800);
     lastFrameRef.current = performance.now();
     pausedRef.current = false;
   };
@@ -1172,6 +1253,20 @@ export default function Home() {
 
   const closeLeaderboard = () => {
     setLeaderboardOpen(false);
+    if (!gameOverRef.current && usernameRef.current) {
+      lastFrameRef.current = performance.now();
+      pausedRef.current = false;
+    }
+  };
+
+  const openAnalytics = () => {
+    pausedRef.current = true;
+    setAnalyticsOpen(true);
+    void loadAnalytics();
+  };
+
+  const closeAnalytics = () => {
+    setAnalyticsOpen(false);
     if (!gameOverRef.current && usernameRef.current) {
       lastFrameRef.current = performance.now();
       pausedRef.current = false;
@@ -1198,9 +1293,9 @@ export default function Home() {
   };
 
   const shareSummary = async () => {
-    const rating = getPerformanceRating(score, peaks, dances);
-    const gameUrl = `${window.location.origin}/`;
-    const text = `我的合成大豆包年度总结：获得 ${formatNumber(score)} 字节范儿，经历 ${adjustments} 次组织架构调整，攀登 ${peaks} 座高峰，绩效 ${rating}。${getSummaryLine(score, peaks, dances)}！扫码或打开 ${gameUrl}`;
+    const rating = getPerformanceRating(score);
+    const gameUrl = gameShareUrl();
+    const text = `我的合成大豆包年度总结：获得 ${formatNumber(score)} 字节范儿，经历 ${adjustments} 次组织架构调整，攀登 ${peaks} 座高峰，绩效 ${rating}。${getPerformanceSummary(score)}！扫码或打开 ${gameUrl}`;
     setShareState("creating");
     try {
       const qrDataUrl = await QRCode.toDataURL(gameUrl, {
@@ -1217,7 +1312,7 @@ export default function Home() {
       });
       const [qrImage, bunImage] = await Promise.all([
         loadImage(qrDataUrl, "二维码生成失败"),
-        loadImage("/icons/level-08-real-doubao.png", "豆包图标加载失败"),
+        loadImage(publicAsset("/icons/level-08-real-doubao.png"), "豆包图标加载失败"),
       ]);
 
       const canvas = document.createElement("canvas");
@@ -1318,7 +1413,7 @@ export default function Home() {
       context.textAlign = "center";
       context.fillStyle = "#25345F";
       context.font = "850 25px Inter, PingFang SC, sans-serif";
-      context.fillText(getSummaryLine(score, peaks, dances), 540, 890);
+      context.fillText(getPerformanceSummary(score), 540, 890);
 
       const mountain = context.createLinearGradient(0, 990, 1080, 1370);
       mountain.addColorStop(0, "#22D6FF");
@@ -1358,37 +1453,23 @@ export default function Home() {
       }
       context.fillStyle = "rgba(255,255,255,.54)";
       context.font = "550 17px Inter, PingFang SC, sans-serif";
-      context.fillText(window.location.host, 454, 1312);
+      context.fillText(new URL(gameUrl).host, 454, 1312);
 
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((value) => value ? resolve(value) : reject(new Error("分享图片生成失败")), "image/png");
-      });
-      const file = new File([blob], `合成大豆包-${usernameRef.current}-年度总结.png`, { type: "image/png" });
+      const previewUrl = canvas.toDataURL("image/png");
+      const filename = `合成大豆包-${usernameRef.current}-年度总结.png`;
+      let file: File | null = null;
+      if (typeof File === "function" && typeof canvas.toBlob === "function") {
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+        if (blob) file = new File([blob], filename, { type: "image/png" });
+      }
       canvas.width = 1;
       canvas.height = 1;
-
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        const nativeShare = navigator.share({ title: "合成大豆包年度总结", text, files: [file] });
-        setShareState("done");
-        window.setTimeout(() => setShareState("idle"), 2200);
-        void nativeShare.catch((error: unknown) => {
-          if (!(error instanceof DOMException && error.name === "AbortError")) setShareState("error");
-        }).finally(() => {
-          lastFrameRef.current = performance.now();
-          window.setTimeout(() => setShareState("idle"), 800);
-        });
-        return;
-      } else {
-        const objectUrl = URL.createObjectURL(blob);
-        const download = document.createElement("a");
-        download.href = objectUrl;
-        download.download = file.name;
-        download.click();
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-        await navigator.clipboard?.writeText(text).catch(() => undefined);
-      }
+      shareFileRef.current = file;
+      shareFilenameRef.current = filename;
+      shareTextRef.current = text;
+      setSharePreviewUrl(previewUrl);
+      setShareHint("微信内请长按图片保存，再发送给好友或朋友圈");
       setShareState("done");
-      window.setTimeout(() => setShareState("idle"), 2200);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         setShareState("idle");
@@ -1399,12 +1480,64 @@ export default function Home() {
     }
   };
 
+  const trackShare = useCallback((channel: ShareChannel) => {
+    void postAnalytics({ eventType: "share", eventId: createTrackingId("share"), channel });
+  }, [postAnalytics]);
+
+  const selectWechatChannel = (channel: "wechat_friend" | "wechat_moments") => {
+    trackShare(channel);
+    setShareHint(channel === "wechat_friend"
+      ? "已记录微信好友渠道：长按上方图片保存，再发送给好友"
+      : "已记录朋友圈渠道：长按上方图片保存，再发布到朋友圈");
+  };
+
+  const downloadShareImage = () => {
+    if (!sharePreviewUrl) return;
+    const download = document.createElement("a");
+    download.href = sharePreviewUrl;
+    download.download = shareFilenameRef.current;
+    document.body.appendChild(download);
+    download.click();
+    download.remove();
+    trackShare("download");
+    setShareHint("图片已触发下载；微信内若未响应，请直接长按上方图片保存");
+  };
+
+  const nativeShareSummary = async () => {
+    const file = shareFileRef.current;
+    if (!file || !navigator.share || !navigator.canShare?.({ files: [file] })) {
+      setShareHint("当前浏览器不支持直接分享文件，请长按图片保存后发送");
+      return;
+    }
+    try {
+      await navigator.share({ title: "合成大豆包年度总结", text: shareTextRef.current, files: [file] });
+      trackShare("system_share");
+      setShareHint("系统分享已完成");
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        setShareHint("系统分享未完成，请长按图片保存后发送");
+      }
+    } finally {
+      lastFrameRef.current = performance.now();
+    }
+  };
+
+  const copyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${shareTextRef.current}\n${gameShareUrl()}`);
+      trackShare("copy_link");
+      setShareHint("链接和年度总结已复制");
+    } catch {
+      setShareHint("复制失败，请长按图片保存后发送");
+    }
+  };
+
   return (
     <main className="game-shell">
       <header className="game-header">
         <div className="brand-mark" aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/level-08-real-doubao.png" alt="" />
+          <img src={publicAsset("/icons/level-08-real-doubao.png")} alt="" />
         </div>
         <div className="title-group">
           <p className="eyebrow">ORGANIZATION LAB</p>
@@ -1414,6 +1547,9 @@ export default function Home() {
         <div className="header-actions">
           <button className="rank-button" type="button" onClick={openLeaderboard} aria-label="查看排行榜">
             <b>榜</b><span>排行</span>
+          </button>
+          <button className="data-button" type="button" onClick={openAnalytics} aria-label="查看数据看板">
+            <b>数</b><span>数据</span>
           </button>
           <button className="icon-button" type="button" onClick={openSettings} aria-label="打开游戏设置">
             <span /><span /><span />
@@ -1564,6 +1700,69 @@ export default function Home() {
         </div>
       )}
 
+      {analyticsOpen && (
+        <div className="modal-backdrop analytics-backdrop" role="presentation" onPointerDown={(event) => {
+          if (event.target === event.currentTarget) closeAnalytics();
+        }}>
+          <section className="modal analytics-modal" role="dialog" aria-modal="true" aria-labelledby="analytics-title">
+            <div className="modal-heading">
+              <div>
+                <p className="eyebrow">ORGANIZATION DATA</p>
+                <h2 id="analytics-title">合成大豆包数据看板</h2>
+                <p className="analytics-note">实时统计 · 转发数按用户主动选择渠道或完成系统分享计</p>
+              </div>
+              <button className="close-button" type="button" onClick={closeAnalytics} aria-label="关闭数据看板">×</button>
+            </div>
+
+            {analyticsLoading && <div className="analytics-state">正在拉取全服数据…</div>}
+            {!analyticsLoading && analyticsError && (
+              <div className="analytics-state is-error">
+                <span>{analyticsError}</span>
+                <button className="secondary-button" type="button" onClick={() => void loadAnalytics()}>重新加载</button>
+              </div>
+            )}
+            {!analyticsLoading && analyticsSummary && (
+              <>
+                <div className="analytics-cards">
+                  <div><span>总游玩人数</span><strong>{formatNumber(analyticsSummary.totalPlayers)}</strong><small>去重设备花名</small></div>
+                  <div><span>总游戏场次</span><strong>{formatNumber(analyticsSummary.totalSessions)}</strong><small>开始投放即计 1 场</small></div>
+                  <div><span>转发动作</span><strong>{formatNumber(analyticsSummary.totalShares)}</strong><small>埋点上线后累计</small></div>
+                </div>
+                <div className="analytics-section">
+                  <div className="analytics-section-title"><b>转发渠道</b><span>按动作次数</span></div>
+                  {analyticsSummary.channels.length === 0 ? (
+                    <p className="analytics-empty">暂时还没有转发动作</p>
+                  ) : (
+                    <div className="channel-list">
+                      {analyticsSummary.channels.map((item) => {
+                        const maximum = Math.max(1, ...analyticsSummary.channels.map((channel) => channel.count));
+                        return (
+                          <div className="channel-row" key={item.channel}>
+                            <span>{CHANNEL_LABELS[item.channel] || item.channel}</span>
+                            <i><b style={{ width: `${Math.max(8, item.count / maximum * 100)}%` }} /></i>
+                            <strong>{formatNumber(item.count)}</strong>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="analytics-section">
+                  <div className="analytics-section-title"><b>近 14 天趋势</b><span>场次 / 转发</span></div>
+                  {analyticsSummary.daily.length === 0 ? <p className="analytics-empty">暂无趋势数据</p> : (
+                    <div className="daily-list">
+                      {analyticsSummary.daily.map((item) => (
+                        <div key={item.day} style={{ "--sessions": Math.min(14, item.sessions) } as CSSProperties}><span>{item.day.slice(5)}</span><b>{item.sessions}</b><i>{item.shares}</i></div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      )}
+
       {settingsOpen && (
         <div className="modal-backdrop" role="presentation" onPointerDown={(event) => {
           if (event.target === event.currentTarget) closeSettings();
@@ -1613,8 +1812,8 @@ export default function Home() {
 
             <div className="performance-result">
               <span>年度绩效</span>
-              <strong>{getPerformanceRating(score, peaks, dances)}</strong>
-              <small>按字节范儿与高峰数综合评定</small>
+              <strong>{getPerformanceRating(score)}</strong>
+              <small>只按字节范儿评定 · 1800 以下为 I</small>
             </div>
 
             <div className="summary-grid">
@@ -1623,7 +1822,7 @@ export default function Home() {
               <div><span>攀登了</span><strong>{peaks}</strong><small>座高峰</small></div>
             </div>
 
-            <blockquote>{getSummaryLine(score, peaks, dances)}</blockquote>
+            <blockquote>{getPerformanceSummary(score)}</blockquote>
             <p className="best-line">历史最佳：{formatNumber(Math.max(bestScore, score))} 字节范儿 · {Math.max(bestPeaks, peaks)} 座高峰</p>
 
             <div className={`rank-result is-${scoreSyncState}`} role="status">
@@ -1637,11 +1836,38 @@ export default function Home() {
             <div className="modal-actions summary-actions">
               <button className="ranking-cta" type="button" onClick={openLeaderboard}>查看字节范儿排行榜</button>
               <button className="secondary-button" type="button" onClick={shareSummary} disabled={shareState === "creating"}>
-                {shareState === "creating" ? "正在生成图片…" : shareState === "done" ? "结算图已生成" : shareState === "error" ? "生成失败，请重试" : "分享结算图片"}
+                {shareState === "creating" ? "正在生成图片…" : shareState === "error" ? "生成失败，请重试" : "生成分享图片"}
               </button>
               <button className="primary-button" type="button" onClick={resetGame}>开启下一年度</button>
             </div>
             <p className="share-hint">分享图包含本局成绩和游戏二维码，扫码即可游玩</p>
+          </section>
+        </div>
+      )}
+
+      {sharePreviewUrl && (
+        <div className="modal-backdrop share-preview-backdrop" role="presentation" onPointerDown={(event) => {
+          if (event.target === event.currentTarget) setSharePreviewUrl("");
+        }}>
+          <section className="modal share-preview-modal" role="dialog" aria-modal="true" aria-labelledby="share-preview-title">
+            <div className="modal-heading">
+              <div>
+                <p className="eyebrow">SHARE ANNUAL REVIEW</p>
+                <h2 id="share-preview-title">分享年度总结</h2>
+              </div>
+              <button className="close-button" type="button" onClick={() => setSharePreviewUrl("")} aria-label="关闭分享图片">×</button>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="share-preview-image" src={sharePreviewUrl} alt="合成大豆包年度总结分享图" />
+            <p className="share-preview-hint" role="status">{shareHint}</p>
+            <div className="share-channel-actions">
+              <button type="button" onClick={() => selectWechatChannel("wechat_friend")}>微信好友</button>
+              <button type="button" onClick={() => selectWechatChannel("wechat_moments")}>朋友圈</button>
+              <button type="button" onClick={() => void nativeShareSummary()}>系统分享</button>
+              <button type="button" onClick={downloadShareImage}>下载原图</button>
+              <button type="button" onClick={() => void copyShareLink()}>复制链接</button>
+            </div>
+            <p className="analytics-note">微信网页无法确认最终是否发送成功，因此看板统计的是主动选择渠道或完成系统分享的次数。</p>
           </section>
         </div>
       )}

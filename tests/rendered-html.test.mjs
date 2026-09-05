@@ -67,9 +67,9 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   assert.match(page, /OKR 完成 · 豆包登顶！/);
   assert.match(page, /扫码加入合成大豆包/);
   assert.doesNotMatch(page, /扫码加入组织碰撞实验/);
-  assert.match(page, /const nativeShare = navigator\.share/);
+  assert.match(page, /await navigator\.share/);
   assert.match(page, /window\.addEventListener\("pageshow", restorePage\)/);
-  assert.match(page, /<img src="\/icons\/level-08-real-doubao\.png" alt=""/);
+  assert.match(page, /<img src=\{publicAsset\("\/icons\/level-08-real-doubao\.png"\)\} alt=""/);
   assert.match(page, /两个 Doubao Dance 合成大豆包，并升起一座高峰。/);
   assert.doesNotMatch(page, /两个 Doubao Dance 消失/);
   assert.doesNotMatch(page, /图标槽位已预留/);
@@ -98,14 +98,19 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
 
-test("keeps first-entry alias, result-card sharing, and shared leaderboard capability", async () => {
-  const [page, route, schema, initialMigration, aliasMigration, hosting] = await Promise.all([
+test("keeps first-entry alias, WeChat-safe sharing, analytics, and shared leaderboard capability", async () => {
+  const [page, route, analyticsRoute, schema, initialMigration, aliasMigration, analyticsMigration, hosting, pagesWorkflow, pagesConfig, apiWorker] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/leaderboard/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/analytics/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0000_stiff_medusa.sql", import.meta.url), "utf8"),
     readFile(new URL("../drizzle/0001_far_carnage.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0002_watery_zaladane.sql", import.meta.url), "utf8"),
     readFile(new URL("../.openai/hosting.json", import.meta.url), "utf8"),
+    readFile(new URL("../.github/workflows/deploy-pages.yml", import.meta.url), "utf8"),
+    readFile(new URL("../vite.pages.config.ts", import.meta.url), "utf8"),
+    readFile(new URL("../api-worker/index.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(page, /先取一个花名/);
@@ -117,6 +122,15 @@ test("keeps first-entry alias, result-card sharing, and shared leaderboard capab
   assert.match(page, /QRCode\.toDataURL/);
   assert.match(page, /扫码加入合成大豆包/);
   assert.match(page, /navigator\.canShare/);
+  assert.match(page, /toDataURL\("image\/png"\)/);
+  assert.match(page, /微信内请长按图片保存/);
+  assert.match(page, /微信好友/);
+  assert.match(page, /朋友圈/);
+  assert.match(page, /PUBLIC_GAME_URL = "https:\/\/znonymity\.github\.io\/doubao-dance-game\/"/);
+  assert.match(page, /PUBLIC_API_BASE = "https:\/\/doubao-dance-api\.znonymity-piasnews\.workers\.dev"/);
+  assert.match(page, /查看数据看板/);
+  assert.match(page, /eventType: "game_start"/);
+  assert.match(page, /eventType: "share"/);
   assert.match(page, /分享图包含本局成绩和游戏二维码/);
   assert.match(page, /字节范儿排行榜/);
   assert.match(page, /全服第 \{myRank\} 名/);
@@ -127,6 +141,16 @@ test("keeps first-entry alias, result-card sharing, and shared leaderboard capab
   assert.match(route, /LIMIT 50/);
   assert.match(schema, /idx_leaderboard_ranking/);
   assert.match(schema, /idx_leaderboard_username_unique/);
+  assert.match(schema, /game_sessions/);
+  assert.match(schema, /share_events/);
+  assert.match(analyticsRoute, /COUNT\(DISTINCT player_id\)/);
+  assert.match(analyticsRoute, /GROUP BY channel/);
+  assert.match(analyticsMigration, /INSERT OR IGNORE INTO `game_sessions`/);
+  assert.match(analyticsMigration, /WHEN `best_score` >= 9000 THEN 'E'/);
+  assert.match(pagesWorkflow, /actions\/deploy-pages@v4/);
+  assert.match(pagesConfig, /base: "\/doubao-dance-game\/"/);
+  assert.match(apiWorker, /Access-Control-Allow-Origin/);
+  assert.match(apiWorker, /\/api\/analytics/);
   assert.match(initialMigration, /CREATE TABLE `leaderboard_entries`/);
   assert.match(initialMigration, /PRAGMA optimize/);
   assert.match(aliasMigration, /CREATE UNIQUE INDEX `idx_leaderboard_username_unique`/);

@@ -1,0 +1,13 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "doubao-dance-api",
+  "main": "index.ts",
+  "compatibility_date": "2026-09-05",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "doubao-dance-analytics",
+      "database_id": "b5e90d4d-9fc8-4cac-a5bb-1832d9494707"
+    }
+  ]
+}

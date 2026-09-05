@@ -23,3 +23,31 @@ export const leaderboardEntries = sqliteTable(
     ),
   ],
 );
+
+export const gameSessions = sqliteTable(
+  "game_sessions",
+  {
+    sessionId: text("session_id").primaryKey(),
+    playerId: text("player_id").notNull(),
+    sourceChannel: text("source_channel").notNull().default("direct"),
+    startedAt: text("started_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("idx_game_sessions_player").on(table.playerId),
+    index("idx_game_sessions_started").on(table.startedAt),
+  ],
+);
+
+export const shareEvents = sqliteTable(
+  "share_events",
+  {
+    eventId: text("event_id").primaryKey(),
+    playerId: text("player_id").notNull(),
+    channel: text("channel").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("idx_share_events_channel").on(table.channel),
+    index("idx_share_events_created").on(table.createdAt),
+  ],
+);

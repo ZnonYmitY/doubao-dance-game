@@ -1,4 +1,5 @@
 import { getD1 } from "@/db";
+import { getPerformanceRating } from "@/lib/performance";
 
 type ScorePayload = {
   playerId?: unknown;
@@ -43,14 +44,6 @@ function readInteger(value: unknown, max: number) {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= max
     ? value
     : null;
-}
-
-function getPerformanceRating(score: number, peaks: number, dances: number) {
-  if (peaks >= 3 || score >= 6000) return "E";
-  if (peaks >= 2 || score >= 3800) return "M+";
-  if (peaks >= 1 || score >= 1800) return "M";
-  if (dances >= 1 || score >= 700) return "M-";
-  return "I";
 }
 
 async function readTopEntries(db: D1Database) {
@@ -126,7 +119,7 @@ export async function POST(request: Request) {
       return json({ error: "成绩数据无效。" }, 400);
     }
 
-    const rating = getPerformanceRating(score, peaks, dances);
+    const rating = getPerformanceRating(score);
     const db = getD1();
     await db.prepare(`
       INSERT INTO leaderboard_entries (
