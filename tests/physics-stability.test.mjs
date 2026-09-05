@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { LEVEL_RADII } from "../lib/game-config.ts";
 import {
   COLLISION_RESTITUTION,
   CONTACT_SOLVER_ITERATIONS,
+  MAX_VISIBLE_PENETRATION,
+  OVERLAP_FALLBACK_ITERATIONS,
+  OVERLAP_SOLVER_ITERATIONS,
   POSITION_CORRECTION,
   constrainBodyToBoard,
+  getMaximumPenetration,
   getPhysicsSubsteps,
   resolveCircleContact,
+  solveBoardOverlaps,
 } from "../lib/physics.ts";
 
 const radius = 20;
@@ -15,6 +21,8 @@ test("keeps the launch-version collision response constants", () => {
   assert.equal(CONTACT_SOLVER_ITERATIONS, 2);
   assert.equal(POSITION_CORRECTION, 0.82);
   assert.equal(COLLISION_RESTITUTION, 0.12);
+  assert.equal(OVERLAP_SOLVER_ITERATIONS, 8);
+  assert.equal(OVERLAP_FALLBACK_ITERATIONS, 32);
 });
 
 test("gentle contacts preserve bounce and rotation instead of freezing", () => {
@@ -64,8 +72,8 @@ test("perfectly overlapping bodies are separated deterministically", () => {
 });
 
 test("an extreme Mira-to-Dance size pair keeps a visible collision gap", () => {
-  const miraRadius = 19;
-  const danceRadius = 70;
+  const miraRadius = LEVEL_RADII[0];
+  const danceRadius = LEVEL_RADII[6];
   const dance = { id: 1, level: 6, x: danceRadius, y: 90, vx: 0, vy: 0, angularVelocity: 0 };
   const mira = { id: 2, level: 0, x: danceRadius + miraRadius + danceRadius - 9, y: 90, vx: 0, vy: 0, angularVelocity: 0 };
 
@@ -84,13 +92,13 @@ test("an extreme Mira-to-Dance size pair keeps a visible collision gap", () => {
 });
 
 test("fast small bodies receive extra substeps to avoid tunneling", () => {
-  const bodies = [{ id: 1, level: 0, x: 0, y: 0, vx: 0, vy: 1000, angularVelocity: 0 }];
-  const steps = getPhysicsSubsteps(bodies, 0.033, () => 19);
+  const bodies = [{ id: 1, level: 0, x: 0, y: 0, vx: 0, vy: 1200, angularVelocity: 0 }];
+  const steps = getPhysicsSubsteps(bodies, 0.033, () => LEVEL_RADII[0]);
   assert.ok(steps >= 3);
 });
 
 test("a fast Mira cannot tunnel through a floor-pinned Dance", () => {
-  const radii = [19, 24, 30, 38, 47, 58, 70];
+  const radii = LEVEL_RADII;
   const bottom = 500;
   const mira = { id: 1, level: 0, x: 195, y: 320, vx: 0, vy: 1500, angularVelocity: 0.35 };
   const dance = { id: 2, level: 6, x: 195, y: bottom - radii[6], vx: 0, vy: 0, angularVelocity: -0.1 };
@@ -113,6 +121,155 @@ test("a fast Mira cannot tunnel through a floor-pinned Dance", () => {
   assert.ok(mira.y < dance.y);
   assert.ok(distance >= radii[0] + radii[6] - 0.1);
   assert.equal(mira.angularVelocity, 0.35);
+});
+
+test("boundary-aware cleanup transfers a trapped corner correction to the free body", () => {
+  const bottom = 560;
+  const velocities = [7, 9, 0.4, -3, 2, -0.2];
+  const mira = {
+    id: 1,
+    level: 0,
+    x: LEVEL_RADII[0],
+    y: bottom - LEVEL_RADII[0],
+    vx: velocities[0],
+    vy: velocities[1],
+    angularVelocity: velocities[2],
+  };
+  const doubao = {
+    id: 2,
+    level: 5,
+    x: 67.2,
+    y: 495,
+    vx: velocities[3],
+    vy: velocities[4],
+    angularVelocity: velocities[5],
+  };
+  const bodies = [mira, doubao];
+
+  assert.ok(getMaximumPenetration(bodies, (level) => LEVEL_RADII[level]) > 20);
+  const remaining = solveBoardOverlaps(bodies, 390, bottom, (level) => LEVEL_RADII[level]);
+
+  assert.ok(remaining <= MAX_VISIBLE_PENETRATION);
+  assert.equal(mira.x, LEVEL_RADII[0]);
+  assert.equal(mira.y, bottom - LEVEL_RADII[0]);
+  assert.deepEqual(
+    [mira.vx, mira.vy, mira.angularVelocity, doubao.vx, doubao.vy, doubao.angularVelocity],
+    velocities,
+  );
+});
+
+test("a newly merged large body is separated from both neighbours before drawing", () => {
+  const bottom = 560;
+  const bodies = [
+    { id: 1, level: 4, x: 100, y: bottom - LEVEL_RADII[4], vx: 4, vy: 0, angularVelocity: 0.1 },
+    { id: 2, level: 4, x: 290, y: bottom - LEVEL_RADII[4], vx: -4, vy: 0, angularVelocity: -0.1 },
+    { id: 3, level: 6, x: 195, y: bottom - LEVEL_RADII[6], vx: 0, vy: -85, angularVelocity: 0.3 },
+  ];
+
+  assert.ok(getMaximumPenetration(bodies, (level) => LEVEL_RADII[level]) > 30);
+  const remaining = solveBoardOverlaps(bodies, 390, bottom, (level) => LEVEL_RADII[level]);
+
+  assert.ok(remaining <= MAX_VISIBLE_PENETRATION);
+  assert.deepEqual(
+    bodies.map(({ vx, vy, angularVelocity }) => [vx, vy, angularVelocity]),
+    [[4, 0, 0.1], [-4, 0, -0.1], [0, -85, 0.3]],
+  );
+});
+
+test("a fixed-seed dense mixed-size pile stays within the board without visible tunneling", () => {
+  const width = 390;
+  const bottom = 545;
+  const elapsed = 1 / 60;
+  const gravity = 980;
+  const levelSequence = [6, 0, 5, 1, 4, 2, 7, 3];
+  const bodies = [];
+  let seed = 1337;
+  let nextId = 1;
+  let maximumAfterCleanup = 0;
+  let maximumBoundaryViolation = 0;
+  const random = () => (
+    (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296
+  );
+  const radiusForLevel = (level) => LEVEL_RADII[level];
+
+  // Disable merging on purpose: retaining all sixteen mixed-size bodies makes
+  // this a deterministic stress test for the contact solver itself.
+  for (let frame = 0; frame < 1800; frame += 1) {
+    if (frame % 90 === 0 && bodies.length < 16) {
+      const level = levelSequence[bodies.length % levelSequence.length];
+      const bodyRadius = radiusForLevel(level);
+      bodies.push({
+        id: nextId++,
+        level,
+        x: bodyRadius + (width - bodyRadius * 2) * random(),
+        y: 50 + bodyRadius,
+        vx: (random() - 0.5) * 120,
+        vy: 0,
+        angularVelocity: (random() - 0.5) * 2,
+      });
+    }
+
+    const substeps = getPhysicsSubsteps(bodies, elapsed, radiusForLevel);
+    for (let substep = 0; substep < substeps; substep += 1) {
+      const delta = elapsed / substeps;
+      bodies.forEach((body) => {
+        const bodyRadius = radiusForLevel(body.level);
+        body.vy += gravity * delta;
+        body.vx *= Math.pow(0.995, delta * 60);
+        body.x += body.vx * delta;
+        body.y += body.vy * delta;
+
+        if (body.x - bodyRadius < 0) {
+          body.x = bodyRadius;
+          body.vx = Math.abs(body.vx) * 0.28;
+        } else if (body.x + bodyRadius > width) {
+          body.x = width - bodyRadius;
+          body.vx = -Math.abs(body.vx) * 0.28;
+        }
+        if (body.y + bodyRadius > bottom) {
+          body.y = bottom - bodyRadius;
+          if (body.vy > 25) body.vy *= -0.16;
+          else body.vy = 0;
+          body.vx *= 0.965;
+          body.angularVelocity = body.vx / Math.max(20, bodyRadius);
+        }
+      });
+
+      for (let iteration = 0; iteration < CONTACT_SOLVER_ITERATIONS; iteration += 1) {
+        for (let firstIndex = 0; firstIndex < bodies.length; firstIndex += 1) {
+          for (let secondIndex = firstIndex + 1; secondIndex < bodies.length; secondIndex += 1) {
+            const first = bodies[firstIndex];
+            const second = bodies[secondIndex];
+            const radiusFirst = radiusForLevel(first.level);
+            const radiusSecond = radiusForLevel(second.level);
+            resolveCircleContact(first, second, radiusFirst, radiusSecond);
+            constrainBodyToBoard(first, radiusFirst, width, bottom);
+            constrainBodyToBoard(second, radiusSecond, width, bottom);
+          }
+        }
+      }
+
+      solveBoardOverlaps(bodies, width, bottom, radiusForLevel);
+      maximumAfterCleanup = Math.max(
+        maximumAfterCleanup,
+        getMaximumPenetration(bodies, radiusForLevel),
+      );
+      bodies.forEach((body) => {
+        const bodyRadius = radiusForLevel(body.level);
+        maximumBoundaryViolation = Math.max(
+          maximumBoundaryViolation,
+          bodyRadius - body.x,
+          body.x + bodyRadius - width,
+          body.y + bodyRadius - bottom,
+        );
+      });
+    }
+  }
+
+  assert.equal(bodies.length, 16);
+  assert.ok(getMaximumPenetration(bodies, radiusForLevel) <= MAX_VISIBLE_PENETRATION);
+  assert.ok(maximumAfterCleanup <= 2.25);
+  assert.ok(maximumBoundaryViolation <= 1e-9);
 });
 
 test("single contact matches the launch-version impulse and correction", () => {

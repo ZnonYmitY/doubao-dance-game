@@ -147,8 +147,7 @@ h1 {
   backdrop-filter: blur(12px);
 }
 
-.rank-button,
-.share-button {
+.rank-button {
   width: 42px;
   height: 42px;
   display: grid;
@@ -163,23 +162,16 @@ h1 {
   cursor: pointer;
 }
 
-.rank-button b,
-.share-button b {
+.rank-button b {
   font-size: 13px;
   line-height: 1;
 }
 
-.rank-button span,
-.share-button span {
+.rank-button span {
   margin-top: 2px;
   color: rgba(255, 255, 255, 0.78);
   font-size: 7px;
   line-height: 1;
-}
-
-.share-button {
-  background: linear-gradient(145deg, #ff3f8e, #7159ff 56%, #3370ff);
-  box-shadow: 0 8px 22px rgba(255, 63, 142, 0.2);
 }
 
 .icon-button span {
@@ -1297,13 +1289,6 @@ h1 {
   letter-spacing: -0.06em;
 }
 
-.performance-result > small {
-  grid-column: 1 / -1;
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 8px;
-}
-
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1393,104 +1378,6 @@ h1 {
   line-height: 1.45;
 }
 
-.invite-share-backdrop {
-  z-index: 60;
-  place-items: center;
-}
-
-.invite-share-modal {
-  width: min(100%, 430px);
-  max-height: 94svh;
-}
-
-.invite-share-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 13px;
-  border: 1px solid rgba(51, 112, 255, 0.11);
-  border-radius: 16px;
-  background: linear-gradient(110deg, rgba(34, 214, 255, 0.09), rgba(51, 112, 255, 0.08), rgba(255, 63, 142, 0.07));
-}
-
-.invite-share-brand img {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  filter: drop-shadow(0 4px 7px rgba(16, 24, 58, 0.2));
-}
-
-.invite-share-brand div {
-  display: grid;
-  gap: 3px;
-}
-
-.invite-share-brand b {
-  font-size: 15px;
-}
-
-.invite-share-brand span {
-  color: var(--muted);
-  font-size: 9px;
-}
-
-.invite-share-copy {
-  margin: 14px 3px;
-  color: var(--ink-soft);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.65;
-  text-align: center;
-}
-
-.invite-qr-card {
-  width: min(100%, 252px);
-  margin: 0 auto;
-  display: grid;
-  justify-items: center;
-  gap: 5px;
-  padding: 15px 15px 13px;
-  border: 1px solid rgba(16, 24, 58, 0.09);
-  border-radius: 22px;
-  background: white;
-  box-shadow: 0 14px 38px rgba(37, 52, 95, 0.11);
-}
-
-.invite-qr-card img,
-.invite-qr-loading {
-  width: 190px;
-  height: 190px;
-}
-
-.invite-qr-card img {
-  display: block;
-}
-
-.invite-qr-loading {
-  display: grid;
-  place-items: center;
-  border-radius: 15px;
-  color: var(--muted);
-  background: linear-gradient(135deg, rgba(34, 214, 255, 0.08), rgba(51, 112, 255, 0.08));
-  font-size: 9px;
-}
-
-.invite-qr-card strong {
-  color: var(--ink);
-  font-size: 11px;
-}
-
-.invite-qr-card span {
-  color: var(--muted);
-  font-size: 8px;
-}
-
-.invite-share-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
 .share-preview-backdrop {
   z-index: 70;
   place-items: center;
@@ -1527,7 +1414,7 @@ h1 {
 
 .share-channel-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
 }
 
@@ -1543,14 +1430,16 @@ h1 {
   cursor: pointer;
 }
 
-.share-channel-actions button:nth-child(-n + 2) {
+.share-channel-actions .share-channel-wechat {
   color: white;
   border-color: transparent;
   background: linear-gradient(120deg, #10b981, #06a66a);
 }
 
-.share-channel-actions button:last-child {
-  grid-column: 1 / -1;
+.share-channel-actions .share-channel-xhs {
+  color: white;
+  border-color: transparent;
+  background: linear-gradient(120deg, #ff2442, #ff4d65);
 }
 
 @keyframes dangerPulse {
@@ -1620,7 +1509,6 @@ h1 {
   }
 
   .brand-mark,
-  .share-button,
   .rank-button,
   .icon-button {
     width: 38px;

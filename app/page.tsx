@@ -11,6 +11,7 @@ import {
   type PointerEvent,
 } from "react";
 import QRCode from "qrcode";
+import { LEVEL_RADII } from "@/lib/game-config";
 import { getPerformanceRating, getPerformanceSummary } from "@/lib/performance";
 import {
   PUBLIC_API_BASE,
@@ -23,6 +24,7 @@ import {
   constrainBodyToBoard,
   getPhysicsSubsteps,
   resolveCircleContact,
+  solveBoardOverlaps,
 } from "@/lib/physics";
 
 type Level = {
@@ -66,17 +68,17 @@ type MountainAnimation = {
   duration: number;
 };
 
-type ShareChannel = "wechat_friend" | "wechat_moments" | "system_share" | "download" | "copy_link";
+type ShareChannel = "wechat_friend" | "wechat_moments" | "xiaohongshu" | "system_share" | "download" | "copy_link";
 
 const LEVELS: Level[] = [
-  { name: "Mira", key: "mira", color: "#20d8ff", accent: "#127cfe", radius: 19, score: 2, symbol: "✦", icon: "/icons/level-01-mira.png" },
-  { name: "AIME", key: "aime", color: "#7259ff", accent: "#4b32c5", radius: 24, score: 4, symbol: "◆", icon: "/icons/level-02-aime.png" },
-  { name: "Coze", key: "coze", color: "#ff4a92", accent: "#df1f70", radius: 30, score: 8, symbol: "∞", icon: "/icons/level-03-coze.png" },
-  { name: "飞书", key: "feishu", color: "#3370ff", accent: "#14c9c9", radius: 38, score: 16, symbol: "◇", icon: "/icons/level-04-feishu.png" },
-  { name: "豆包工作", key: "doubao-work", color: "#12bfa6", accent: "#087d87", radius: 47, score: 32, symbol: "▣", icon: "/icons/level-05-doubao-work.png" },
-  { name: "豆包", key: "doubao", color: "#ff7147", accent: "#ff3f77", radius: 58, score: 64, symbol: "●", icon: "/icons/level-06-doubao.png" },
-  { name: "Doubao Dance", key: "doubao-dance", color: "#18234d", accent: "#ff3f8e", radius: 70, score: 128, symbol: "≋", icon: "/icons/level-07-doubao-dance.png" },
-  { name: "大豆包", key: "real-doubao", color: "#f5d6a7", accent: "#a94e28", radius: 64, score: 300, symbol: "包", icon: "/icons/level-08-real-doubao.png" },
+  { name: "Mira", key: "mira", color: "#20d8ff", accent: "#127cfe", radius: LEVEL_RADII[0], score: 2, symbol: "✦", icon: "/icons/level-01-mira.png" },
+  { name: "AIME", key: "aime", color: "#7259ff", accent: "#4b32c5", radius: LEVEL_RADII[1], score: 4, symbol: "◆", icon: "/icons/level-02-aime.png" },
+  { name: "Coze", key: "coze", color: "#ff4a92", accent: "#df1f70", radius: LEVEL_RADII[2], score: 8, symbol: "∞", icon: "/icons/level-03-coze.png" },
+  { name: "飞书", key: "feishu", color: "#3370ff", accent: "#14c9c9", radius: LEVEL_RADII[3], score: 16, symbol: "◇", icon: "/icons/level-04-feishu.png" },
+  { name: "豆包工作", key: "doubao-work", color: "#12bfa6", accent: "#087d87", radius: LEVEL_RADII[4], score: 32, symbol: "▣", icon: "/icons/level-05-doubao-work.png" },
+  { name: "豆包", key: "doubao", color: "#ff7147", accent: "#ff3f77", radius: LEVEL_RADII[5], score: 64, symbol: "●", icon: "/icons/level-06-doubao.png" },
+  { name: "Doubao Dance", key: "doubao-dance", color: "#18234d", accent: "#ff3f8e", radius: LEVEL_RADII[6], score: 128, symbol: "≋", icon: "/icons/level-07-doubao-dance.png" },
+  { name: "大豆包", key: "real-doubao", color: "#f5d6a7", accent: "#a94e28", radius: LEVEL_RADII[7], score: 300, symbol: "包", icon: "/icons/level-08-real-doubao.png" },
 ];
 
 const GAME_WIDTH = 390;
@@ -87,7 +89,6 @@ const DROP_COOLDOWN = 430;
 const DANGER_DURATION = 2500;
 const DROP_POOL = [0, 0, 0, 0, 1, 1, 2];
 const LEADERBOARD_CACHE_KEY = "doubao-dance-leaderboard-cache";
-const INVITE_SHARE_COPY = "让组织碰撞起来？从 Mira 一路合成到 Doubao Dance，合出大豆包，勇攀高峰。";
 
 const pickDropLevel = () => DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
 
@@ -322,10 +323,7 @@ export default function Home() {
   const [scoreSyncState, setScoreSyncState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [shareState, setShareState] = useState<"idle" | "creating" | "done" | "error">("idle");
   const [sharePreviewUrl, setSharePreviewUrl] = useState("");
-  const [shareHint, setShareHint] = useState("长按图片可直接保存到手机相册");
-  const [inviteShareOpen, setInviteShareOpen] = useState(false);
-  const [inviteQrUrl, setInviteQrUrl] = useState("");
-  const [inviteShareHint, setInviteShareHint] = useState("扫码或转发链接，邀请同事来一局");
+  const [shareHint, setShareHint] = useState("长按上方图片保存到相册，再发送至微信、小红书等平台");
   const syncScore = useCallback((delta: number) => {
     scoreRef.current += delta;
     setScore(scoreRef.current);
@@ -541,7 +539,6 @@ export default function Home() {
     setSettingsOpen(false);
     setShareState("idle");
     setSharePreviewUrl("");
-    setInviteShareOpen(false);
     shareFileRef.current = null;
     setMyRank(null);
     setScoreSyncState("idle");
@@ -829,11 +826,13 @@ export default function Home() {
       context.shadowBlur = Math.max(7, radius * 0.2);
       context.shadowOffsetY = Math.max(3, radius * 0.1);
       if (ball.level === FINAL_LEVEL && hasIcon && icon) {
-        const size = radius * 2.18;
+        const size = radius * 2.1;
         context.drawImage(icon, ball.x - size / 2, ball.y - size / 2, size, size);
         context.restore();
         return;
       }
+      const shellLineWidth = Math.max(2, radius * 0.06);
+      const shellRadius = radius - shellLineWidth / 2 - 0.5;
       const gradient = context.createRadialGradient(
         ball.x - radius * 0.34,
         ball.y - radius * 0.42,
@@ -863,10 +862,10 @@ export default function Home() {
         context.fillStyle = hasIcon ? "#ffffff" : gradient;
       }
       context.beginPath();
-      context.arc(ball.x, ball.y, radius, 0, Math.PI * 2);
+      context.arc(ball.x, ball.y, shellRadius, 0, Math.PI * 2);
       context.fill();
       context.shadowColor = "transparent";
-      context.lineWidth = Math.max(2, radius * 0.06);
+      context.lineWidth = shellLineWidth;
       context.strokeStyle = "rgba(255,255,255,.84)";
       context.stroke();
 
@@ -874,7 +873,7 @@ export default function Home() {
         if (ball.level === DANCE_LEVEL) {
           context.save();
           context.beginPath();
-          context.arc(ball.x, ball.y, radius * 0.91, 0, Math.PI * 2);
+          context.arc(ball.x, ball.y, radius * 0.94, 0, Math.PI * 2);
           context.clip();
           context.drawImage(
             icon,
@@ -882,24 +881,24 @@ export default function Home() {
             205,
             105,
             105,
-            ball.x - radius * 0.4,
-            ball.y - radius * 0.68,
-            radius * 0.8,
-            radius * 0.64,
+            ball.x - radius * 0.51,
+            ball.y - radius * 0.74,
+            radius * 1.02,
+            radius * 0.82,
           );
           context.fillStyle = "#1551d6";
           context.textAlign = "center";
           context.textBaseline = "middle";
-          context.font = `850 ${Math.max(8, radius * 0.22)}px Inter, system-ui, sans-serif`;
+          context.font = `850 ${Math.max(8, radius * 0.25)}px Inter, system-ui, sans-serif`;
           context.fillText("Doubao", ball.x, ball.y + radius * 0.08);
           context.fillText("Dance", ball.x, ball.y + radius * 0.34);
           context.restore();
         } else {
           context.save();
           context.beginPath();
-          context.arc(ball.x, ball.y, radius * 0.91, 0, Math.PI * 2);
+          context.arc(ball.x, ball.y, radius * 0.94, 0, Math.PI * 2);
           context.clip();
-          const size = radius * 1.92;
+          const size = radius * 2.1;
           context.drawImage(icon, ball.x - size / 2, ball.y - size / 2, size, size);
           context.restore();
         }
@@ -1167,6 +1166,10 @@ export default function Home() {
       if (removed.size > 0) {
         ballsRef.current = balls.filter((ball) => !removed.has(ball.id)).concat(additions);
       }
+      // Run the position-only cleanup after every substep. Dense wall/floor
+      // contacts can otherwise rebuild a visible overlap before the frame is
+      // drawn, even though the launch-version velocity response is unchanged.
+      solveBoardOverlaps(ballsRef.current, width, bottom, levelRadius);
 
       const lineY = dangerY();
       const overflowing = ballsRef.current.some((ball) => {
@@ -1214,7 +1217,9 @@ export default function Home() {
       if (!pausedRef.current) {
         updateMountainAnimation(elapsed);
         const steps = getPhysicsSubsteps(ballsRef.current, elapsed, levelRadius);
-        for (let index = 0; index < steps; index += 1) resolvePhysics(elapsed / steps, now);
+        for (let index = 0; index < steps; index += 1) {
+          resolvePhysics(elapsed / steps, now);
+        }
       }
       drawScene(pausedRef.current ? 0 : elapsed);
       animationRef.current = requestAnimationFrame(frame);
@@ -1314,7 +1319,7 @@ export default function Home() {
   const shareSummary = async () => {
     const rating = getPerformanceRating(score, peaks);
     const gameUrl = gameShareUrl();
-    const text = `我的合成大豆包年度总结：获得 ${formatNumber(score)} 字节范儿，经历 ${adjustments} 次组织架构调整，攀登 ${peaks} 座高峰，绩效 ${rating}。${getPerformanceSummary(score, peaks)}！扫码或打开 ${gameUrl}`;
+    const text = `我的合成大豆包年度总结：获得 ${formatNumber(score)} 节子范儿，经历 ${adjustments} 次组织架构调整，攀登 ${peaks} 座高峰，绩效 ${rating}。${getPerformanceSummary(score, peaks)}！扫码或打开 ${gameUrl}`;
     setShareState("creating");
     try {
       const qrDataUrl = await QRCode.toDataURL(gameUrl, {
@@ -1397,7 +1402,7 @@ export default function Home() {
       context.fillText(formatNumber(score), 540, 506);
       context.fillStyle = "#3370FF";
       context.font = "850 25px Inter, PingFang SC, sans-serif";
-      context.fillText("字节范儿", 540, 549);
+      context.fillText("节子范儿", 540, 549);
 
       const performanceGradient = context.createLinearGradient(324, 590, 756, 684);
       performanceGradient.addColorStop(0, "rgba(34,214,255,.16)");
@@ -1463,7 +1468,7 @@ export default function Home() {
       context.fillText("扫码加入合成大豆包", 454, 1120);
       context.fillStyle = "rgba(255,255,255,.72)";
       context.font = "650 22px Inter, PingFang SC, sans-serif";
-      context.fillText("两个相同图标碰撞，合成你的字节范儿", 454, 1170);
+      context.fillText("两个相同图标碰撞，合成你的节子范儿", 454, 1170);
       if (myRank) {
         card(454, 1210, 278, 62, 18, "rgba(51,112,255,.38)");
         context.fillStyle = "#FFFFFF";
@@ -1487,7 +1492,7 @@ export default function Home() {
       shareFilenameRef.current = filename;
       shareTextRef.current = text;
       setSharePreviewUrl(previewUrl);
-      setShareHint("微信内请长按图片保存，再发送给好友或朋友圈");
+      setShareHint("长按上方图片保存到相册，再发送至微信、小红书等平台");
       setShareState("done");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -1503,65 +1508,29 @@ export default function Home() {
     void postAnalytics({ eventType: "share", eventId: createTrackingId("share"), channel });
   }, [postAnalytics]);
 
-  const openInviteShare = async () => {
-    pausedRef.current = true;
-    setInviteShareOpen(true);
-    setInviteShareHint("扫码或转发链接，邀请同事来一局");
-    if (inviteQrUrl) return;
-    try {
-      const qrDataUrl = await QRCode.toDataURL(gameShareUrl(), {
-        width: 420,
-        margin: 2,
-        errorCorrectionLevel: "H",
-        color: { dark: "#10183A", light: "#FFFFFF" },
-      });
-      setInviteQrUrl(qrDataUrl);
-    } catch {
-      setInviteShareHint("二维码生成失败，请重试或直接复制链接");
-    }
-  };
-
-  const closeInviteShare = () => {
-    setInviteShareOpen(false);
-    if (!gameOverRef.current && usernameRef.current) {
-      lastFrameRef.current = performance.now();
-      pausedRef.current = false;
-    }
-  };
-
-  const nativeShareInvite = async () => {
-    if (!navigator.share) {
-      setInviteShareHint("当前浏览器不支持系统分享，请复制链接发送");
-      return;
-    }
-    try {
-      await navigator.share({ title: "合成大豆包", text: INVITE_SHARE_COPY, url: gameShareUrl() });
-      trackShare("system_share");
-      setInviteShareHint("分享面板已打开，发送后回来继续合成");
-    } catch (error) {
-      if (!(error instanceof DOMException && error.name === "AbortError")) {
-        setInviteShareHint("系统分享未完成，请复制链接发送");
-      }
-    } finally {
-      lastFrameRef.current = performance.now();
-    }
-  };
-
-  const copyInviteLink = async () => {
-    try {
-      await navigator.clipboard.writeText(`${INVITE_SHARE_COPY}\n${gameShareUrl()}`);
-      trackShare("copy_link");
-      setInviteShareHint("文案和游戏链接已复制");
-    } catch {
-      setInviteShareHint("复制失败，可让同事直接扫描二维码");
-    }
-  };
-
-  const selectWechatChannel = (channel: "wechat_friend" | "wechat_moments") => {
+  const selectSocialChannel = async (channel: "wechat_friend" | "wechat_moments" | "xiaohongshu") => {
     trackShare(channel);
-    setShareHint(channel === "wechat_friend"
-      ? "已记录微信好友渠道：长按上方图片保存，再发送给好友"
-      : "已记录朋友圈渠道：长按上方图片保存，再发布到朋友圈");
+    if (channel === "wechat_friend") {
+      setShareHint("长按上方图片保存，再发送给微信好友");
+    } else if (channel === "wechat_moments") {
+      setShareHint("长按上方图片保存，再发布到朋友圈");
+    } else {
+      const file = shareFileRef.current;
+      if (!file || !navigator.share || !navigator.canShare?.({ files: [file] })) {
+        setShareHint("长按上方图片保存到相册，再发布到小红书");
+        return;
+      }
+      try {
+        await navigator.share({ title: "合成大豆包年度总结", text: shareTextRef.current, files: [file] });
+        setShareHint("分享面板已完成；若未选择小红书，也可长按图片保存后发布");
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setShareHint("未能调起分享面板，请长按上方图片保存后发布到小红书");
+        }
+      } finally {
+        lastFrameRef.current = performance.now();
+      }
+    }
   };
 
   const downloadShareImage = () => {
@@ -1573,13 +1542,13 @@ export default function Home() {
     download.click();
     download.remove();
     trackShare("download");
-    setShareHint("图片已触发下载；微信内若未响应，请直接长按上方图片保存");
+    setShareHint("图片已触发下载；若未响应，请直接长按上方图片保存到相册");
   };
 
   const nativeShareSummary = async () => {
     const file = shareFileRef.current;
     if (!file || !navigator.share || !navigator.canShare?.({ files: [file] })) {
-      setShareHint("当前浏览器不支持直接分享文件，请长按图片保存后发送");
+      setShareHint("当前浏览器不支持直接分享文件，请长按图片保存后发送至微信或小红书");
       return;
     }
     try {
@@ -1588,7 +1557,7 @@ export default function Home() {
       setShareHint("系统分享已完成");
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) {
-        setShareHint("系统分享未完成，请长按图片保存后发送");
+        setShareHint("系统分享未完成，请长按图片保存后发送至微信或小红书");
       }
     } finally {
       lastFrameRef.current = performance.now();
@@ -1601,7 +1570,7 @@ export default function Home() {
       trackShare("copy_link");
       setShareHint("链接和年度总结已复制");
     } catch {
-      setShareHint("复制失败，请长按图片保存后发送");
+      setShareHint("复制失败，请长按图片保存后发送至微信或小红书");
     }
   };
 
@@ -1618,9 +1587,6 @@ export default function Home() {
           <p className="subtitle">{username ? `@${username} · 让组织碰撞起来？` : "让组织碰撞起来？"}</p>
         </div>
         <div className="header-actions">
-          <button className="share-button" type="button" onClick={() => void openInviteShare()} aria-label="分享游戏">
-            <b>享</b><span>分享</span>
-          </button>
           <button className="rank-button" type="button" onClick={openLeaderboard} aria-label="查看排行榜">
             <b>榜</b><span>排行</span>
           </button>
@@ -1632,7 +1598,7 @@ export default function Home() {
 
       <section className="score-row" aria-label="本局数据">
         <div className="score-card score-main">
-          <span>字节范儿</span>
+          <span>节子范儿</span>
           <strong>{formatNumber(score)}</strong>
         </div>
         <div className="score-card">
@@ -1738,7 +1704,7 @@ export default function Home() {
             <div className="modal-heading leaderboard-heading">
               <div>
                 <p className="eyebrow">BYTE STYLE RANKING</p>
-                <h2 id="leaderboard-title">字节范儿排行榜</h2>
+                <h2 id="leaderboard-title">节子范儿排行榜</h2>
                 <p>按个人历史最高分排名 · TOP 50</p>
               </div>
               <button className="close-button" type="button" onClick={closeLeaderboard} aria-label="关闭排行榜">×</button>
@@ -1764,49 +1730,12 @@ export default function Home() {
                       <b>{entry.username}{entry.username === username ? " · 我" : ""}</b>
                       <small>{entry.peaks} 座高峰 · {entry.adjustments} 次调整</small>
                     </span>
-                    <span className="leaderboard-score"><b>{formatNumber(entry.score)}</b><small>字节范儿</small></span>
+                    <span className="leaderboard-score"><b>{formatNumber(entry.score)}</b><small>节子范儿</small></span>
                     <span className="rating-pill">{entry.rating}</span>
                   </li>
                 ))}
               </ol>
             )}
-          </section>
-        </div>
-      )}
-
-      {inviteShareOpen && (
-        <div className="modal-backdrop invite-share-backdrop" role="presentation" onPointerDown={(event) => {
-          if (event.target === event.currentTarget) closeInviteShare();
-        }}>
-          <section className="modal invite-share-modal" role="dialog" aria-modal="true" aria-labelledby="invite-share-title">
-            <div className="modal-heading">
-              <div>
-                <p className="eyebrow">SHARE THE FUN</p>
-                <h2 id="invite-share-title">扫码加入合成大豆包</h2>
-              </div>
-              <button className="close-button" type="button" onClick={closeInviteShare} aria-label="关闭分享界面">×</button>
-            </div>
-            <div className="invite-share-brand">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={publicAsset("/icons/level-08-real-doubao.png")} alt="合成大豆包" />
-              <div><b>合成大豆包</b><span>@{username} 邀你来一局</span></div>
-            </div>
-            <p className="invite-share-copy">{INVITE_SHARE_COPY}</p>
-            <div className="invite-qr-card">
-              {inviteQrUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={inviteQrUrl} alt="合成大豆包游戏二维码" />
-              ) : (
-                <div className="invite-qr-loading">正在生成二维码…</div>
-              )}
-              <strong>微信扫一扫，直接开玩</strong>
-              <span>无需下载 · 手机电脑都能玩</span>
-            </div>
-            <p className="share-preview-hint" role="status">{inviteShareHint}</p>
-            <div className="invite-share-actions">
-              <button className="secondary-button" type="button" onClick={() => void copyInviteLink()}>复制文案和链接</button>
-              <button className="primary-button" type="button" onClick={() => void nativeShareInvite()}>系统分享</button>
-            </div>
           </section>
         </div>
       )}
@@ -1848,7 +1777,7 @@ export default function Home() {
         </div>
       )}
 
-      {gameOver && !leaderboardOpen && !inviteShareOpen && (
+      {gameOver && !leaderboardOpen && (
         <div className="modal-backdrop summary-backdrop">
           <section className="modal summary-card" role="dialog" aria-modal="true" aria-labelledby="summary-title">
             <div className="summary-ribbons" aria-hidden="true"><i /><i /><i /><i /><i /></div>
@@ -1856,12 +1785,11 @@ export default function Home() {
             <h2 id="summary-title">本年度调整已完成</h2>
             <p className="summary-lead">本年度累计获得</p>
             <strong className="summary-score">{formatNumber(score)}</strong>
-            <span className="summary-unit">字节范儿</span>
+            <span className="summary-unit">节子范儿</span>
 
             <div className="performance-result">
               <span>年度绩效</span>
               <strong>{getPerformanceRating(score, peaks)}</strong>
-              <small>3000 以下或 0 峰为 I · 2 峰 M+ · 3 峰 E</small>
             </div>
 
             <div className="summary-grid">
@@ -1871,7 +1799,7 @@ export default function Home() {
             </div>
 
             <blockquote>{getPerformanceSummary(score, peaks)}</blockquote>
-            <p className="best-line">历史最佳：{formatNumber(Math.max(bestScore, score))} 字节范儿 · {Math.max(bestPeaks, peaks)} 座高峰</p>
+            <p className="best-line">历史最佳：{formatNumber(Math.max(bestScore, score))} 节子范儿 · {Math.max(bestPeaks, peaks)} 座高峰</p>
 
             <div className={`rank-result is-${scoreSyncState}`} role="status">
               {scoreSyncState === "saving" && "正在同步全服排名…"}
@@ -1882,7 +1810,7 @@ export default function Home() {
             </div>
 
             <div className="modal-actions summary-actions">
-              <button className="ranking-cta" type="button" onClick={openLeaderboard}>查看字节范儿排行榜</button>
+              <button className="ranking-cta" type="button" onClick={openLeaderboard}>查看节子范儿排行榜</button>
               <button className="secondary-button" type="button" onClick={shareSummary} disabled={shareState === "creating"}>
                 {shareState === "creating" ? "正在生成图片…" : shareState === "error" ? "生成失败，请重试" : "生成分享图片"}
               </button>
@@ -1909,13 +1837,14 @@ export default function Home() {
             <img className="share-preview-image" src={sharePreviewUrl} alt="合成大豆包年度总结分享图" />
             <p className="share-preview-hint" role="status">{shareHint}</p>
             <div className="share-channel-actions">
-              <button type="button" onClick={() => selectWechatChannel("wechat_friend")}>微信好友</button>
-              <button type="button" onClick={() => selectWechatChannel("wechat_moments")}>朋友圈</button>
+              <button className="share-channel-wechat" type="button" onClick={() => void selectSocialChannel("wechat_friend")}>微信好友</button>
+              <button className="share-channel-wechat" type="button" onClick={() => void selectSocialChannel("wechat_moments")}>朋友圈</button>
+              <button className="share-channel-xhs" type="button" onClick={() => void selectSocialChannel("xiaohongshu")}>小红书</button>
               <button type="button" onClick={() => void nativeShareSummary()}>系统分享</button>
               <button type="button" onClick={downloadShareImage}>下载原图</button>
               <button type="button" onClick={() => void copyShareLink()}>复制链接</button>
             </div>
-            <p className="analytics-note">微信网页无法确认最终是否发送成功，请发送后回到本页面。</p>
+            <p className="analytics-note">长按图片可直接保存；网页无法确认平台内最终是否发布成功。</p>
           </section>
         </div>
       )}

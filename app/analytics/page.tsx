@@ -6,6 +6,7 @@ import { PUBLIC_GAME_URL, apiUrl, type AnalyticsSummary } from "@/lib/public-api
 const CHANNEL_LABELS: Record<string, string> = {
   wechat_friend: "微信好友",
   wechat_moments: "朋友圈",
+  xiaohongshu: "小红书",
   system_share: "系统分享",
   download: "下载图片",
   copy_link: "复制链接",

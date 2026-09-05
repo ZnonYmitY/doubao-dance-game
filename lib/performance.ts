@@ -23,7 +23,7 @@ export function getPerformanceRating(score: number, peaks = 0): PerformanceRatin
 
 export function getPerformanceSummary(score: number, peaks = 0) {
   const rating = getPerformanceRating(score, peaks);
-  if (rating === "E") return "年度超额交付，字节范儿拉满";
+  if (rating === "E") return "年度超额交付，节子范儿拉满";
   if (rating === "M+") return "高效对齐，持续拿结果";
   if (rating === "M") return "关键路径跑通，组织效能稳定";
   if (rating === "M-") return "核心目标基本达成";

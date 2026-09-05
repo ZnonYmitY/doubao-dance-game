@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 
 const title = "合成大豆包 · Doubao Dance";
-const description = "让组织碰撞起来？在一次次组织调整中勇攀高峰，冲击字节范儿排行榜。";
+const description = "让组织碰撞起来？在一次次组织调整中勇攀高峰，冲击节子范儿排行榜。";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();

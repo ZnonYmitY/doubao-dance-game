@@ -23,7 +23,8 @@ test("server-renders the organization merge game", async () => {
   assert.match(html, /<title>合成大豆包 · Doubao Dance<\/title>/i);
   assert.match(html, /合成大豆包/);
   assert.match(html, /让组织碰撞起来？/);
-  assert.match(html, /字节范儿/);
+  assert.match(html, /节子范儿/);
+  assert.doesNotMatch(html, /字节\s*范/);
   assert.match(html, /勇攀高峰/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
 });
@@ -40,12 +41,15 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
 
   assert.match(page, /const DANGER_DURATION = 2500/);
   assert.match(page, /CONTACT_SOLVER_ITERATIONS/);
+  assert.match(page, /solveBoardOverlaps/);
   assert.doesNotMatch(page, /stabilizeRestingPile/);
   assert.match(page, /first\.level === DANCE_LEVEL/);
   assert.match(page, /first\.level < FINAL_LEVEL/);
   assert.match(page, /level: FINAL_LEVEL/);
   assert.doesNotMatch(page, /getContactPadding/);
   assert.match(page, /getPhysicsSubsteps/);
+  assert.match(page, /LEVEL_RADII/);
+  assert.match(page, /const shellRadius = radius - shellLineWidth \/ 2 - 0\.5/);
   assert.match(page, /const GAME_WIDTH = 390/);
   assert.match(page, /const GAME_HEIGHT = 560/);
   assert.match(page, /logicalX = \(\(clientX - rect\.left\) \/ rect\.width\) \* GAME_WIDTH/);
@@ -58,6 +62,7 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   assert.match(page, /本年度调整已完成/);
   assert.match(page, /年度绩效/);
   assert.match(page, /getPerformanceRating/);
+  assert.doesNotMatch(page, /3000 以下或 0 峰/);
   assert.match(page, /高效对齐/);
   assert.match(page, /非核心环节延后处理/);
   assert.match(page, /卷起来！/);
@@ -82,7 +87,7 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(iconGuide, /level-07-doubao-dance\.png/);
   assert.match(iconGuide, /level-08-real-doubao\.png/);
-  assert.match(gameDesign, /V0\.5/);
+  assert.match(gameDesign, /V0\.6/);
   assert.match(gameDesign, /大豆包不可继续合成，但仍参与后续碰撞/);
   assert.doesNotMatch(gameDesign, /Doubao Dance 相遇后同时消失|Doubao Dance 碰撞后爆开消失/);
   await Promise.all([
@@ -123,19 +128,14 @@ test("keeps first-entry alias, WeChat-safe sharing, hidden analytics, and resili
   assert.match(page, /method: "PUT"/);
   assert.match(page, /QRCode\.toDataURL/);
   assert.match(page, /扫码加入合成大豆包/);
-  assert.match(page, /className="share-button"/);
-  assert.match(page, /INVITE_SHARE_COPY/);
-  assert.match(page, /微信扫一扫，直接开玩/);
-  assert.match(page, /无需下载 · 手机电脑都能玩/);
-  assert.match(page, /copyInviteLink/);
-  assert.match(page, /nativeShareInvite/);
-  assert.match(page, /setInviteShareOpen\(true\)/);
-  assert.match(page, /setInviteShareOpen\(false\)/);
+  assert.doesNotMatch(page, /className="share-button"|INVITE_SHARE_COPY|copyInviteLink|nativeShareInvite|setInviteShareOpen/);
   assert.match(page, /navigator\.canShare/);
   assert.match(page, /toDataURL\("image\/png"\)/);
-  assert.match(page, /微信内请长按图片保存/);
+  assert.match(page, /长按上方图片保存到相册/);
   assert.match(page, /微信好友/);
   assert.match(page, /朋友圈/);
+  assert.match(page, /小红书/);
+  assert.match(page, /xiaohongshu/);
   assert.match(publicApi, /PUBLIC_GAME_URL = "https:\/\/znonymity\.github\.io\/doubao-dance-game\/"/);
   assert.match(publicApi, /PUBLIC_API_BASE = "https:\/\/doubao-dance-api\.znonymity-piasnews\.workers\.dev"/);
   assert.doesNotMatch(page, /查看数据看板|data-button/);
@@ -145,7 +145,8 @@ test("keeps first-entry alias, WeChat-safe sharing, hidden analytics, and resili
   assert.match(page, /eventType: "game_start"/);
   assert.match(page, /eventType: "share"/);
   assert.match(page, /分享图包含本局成绩和游戏二维码/);
-  assert.match(page, /字节范儿排行榜/);
+  assert.match(page, /节子范儿排行榜/);
+  assert.doesNotMatch(page, /字节\s*范/);
   assert.match(page, /全服第 \{myRank\} 名/);
   assert.match(page, /fetchLeaderboardWithJsonp/);
   assert.match(page, /网络波动，当前显示最近一次同步结果/);
