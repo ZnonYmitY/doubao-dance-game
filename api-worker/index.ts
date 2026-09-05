@@ -32,32 +32,25 @@ type LeaderboardRow = {
   updatedAt: string;
 };
 
-const ALLOWED_ORIGINS = new Set([
-  "https://doubao-dance-game.lucky-plum-7420.chatgpt.site",
-  "https://znonymity.github.io",
-]);
-
-function corsHeaders(request: Request) {
-  const origin = request.headers.get("Origin") ?? "";
+function corsHeaders() {
   return {
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin) || origin.startsWith("http://localhost:") ? origin : "https://znonymity.github.io",
+    "Access-Control-Allow-Origin": "*",
     "Cache-Control": "no-store",
     "Content-Type": "application/json; charset=utf-8",
-    "Vary": "Origin",
   };
 }
 
-function json(request: Request, data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: corsHeaders(request) });
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: corsHeaders() });
 }
 
-function jsonp(request: Request, data: unknown, callback: string) {
+function jsonp(data: unknown, callback: string) {
   return new Response(`${callback}(${JSON.stringify(data)});`, {
     status: 200,
     headers: {
-      ...corsHeaders(request),
+      ...corsHeaders(),
       "Content-Type": "application/javascript; charset=utf-8",
     },
   });
@@ -96,12 +89,12 @@ async function readTopEntries(db: D1Database) {
   return (result.results ?? []).map((entry, index) => ({ ...entry, rank: index + 1 }));
 }
 
-function routeError(request: Request, error: unknown) {
+function routeError(error: unknown) {
   const message = error instanceof Error ? error.message : "Unexpected error";
   if (message.includes("UNIQUE constraint failed") && message.includes("username")) {
-    return json(request, { error: "这个花名已经有人使用，请换一个。" }, 409);
+    return json({ error: "这个花名已经有人使用，请换一个。" }, 409);
   }
-  return json(request, { error: "服务暂时不可用，请稍后再试。" }, 500);
+  return json({ error: "服务暂时不可用，请稍后再试。" }, 500);
 }
 
 async function leaderboard(request: Request, db: D1Database) {
@@ -110,14 +103,14 @@ async function leaderboard(request: Request, db: D1Database) {
       const data = { entries: await readTopEntries(db) };
       const callback = new URL(request.url).searchParams.get("callback");
       if (callback && !/^[a-zA-Z_$][a-zA-Z0-9_$]{0,80}$/.test(callback)) {
-        return json(request, { error: "Invalid callback" }, 400);
+        return json({ error: "Invalid callback" }, 400);
       }
-      return callback ? jsonp(request, data, callback) : json(request, data);
+      return callback ? jsonp(data, callback) : json(data);
     }
     const payload = (await request.json()) as ScorePayload;
     const playerId = readId(payload.playerId);
     const username = normalizeUsername(payload.username);
-    if (!playerId || !username) return json(request, { error: "花名需为 2–3 个汉字。" }, 400);
+    if (!playerId || !username) return json({ error: "花名需为 2–3 个汉字。" }, 400);
 
     if (request.method === "PUT") {
       await db.prepare(`
@@ -125,16 +118,16 @@ async function leaderboard(request: Request, db: D1Database) {
         VALUES (?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(player_id) DO UPDATE SET username = excluded.username
       `).bind(playerId, username).run();
-      return json(request, { username }, 201);
+      return json({ username }, 201);
     }
 
-    if (request.method !== "POST") return json(request, { error: "Method not allowed" }, 405);
+    if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
     const score = readInteger(payload.score, 1_000_000);
     const adjustments = readInteger(payload.adjustments, 10_000);
     const peaks = readInteger(payload.peaks, 1_000);
     const dances = readInteger(payload.dances, 2_000);
     if (score === null || adjustments === null || peaks === null || dances === null) {
-      return json(request, { error: "成绩数据无效。" }, 400);
+      return json({ error: "成绩数据无效。" }, 400);
     }
     const rating = getPerformanceRating(score, peaks);
     await db.prepare(`
@@ -186,9 +179,9 @@ async function leaderboard(request: Request, db: D1Database) {
         (best_score = ? AND best_peaks = ? AND best_dances > ?)
       )
     `).bind(current.score, current.score, current.peaks, current.score, current.peaks, current.dances).first<{ rank: number }>() : null;
-    return json(request, { entries: await readTopEntries(db), rank: rankRow?.rank ?? null }, 201);
+    return json({ entries: await readTopEntries(db), rank: rankRow?.rank ?? null }, 201);
   } catch (error) {
-    return routeError(request, error);
+    return routeError(error);
   }
 }
 
@@ -211,7 +204,7 @@ async function analytics(request: Request, db: D1Database) {
           FROM days GROUP BY day ORDER BY day ASC
         `).all<{ day: string; sessions: number; shares: number }>(),
       ]);
-      return json(request, {
+      return json({
         totalPlayers: Number(players?.total ?? 0),
         totalSessions: Number(sessions?.total ?? 0),
         totalShares: Number(shares?.total ?? 0),
@@ -221,37 +214,37 @@ async function analytics(request: Request, db: D1Database) {
       });
     }
 
-    if (request.method !== "POST") return json(request, { error: "Method not allowed" }, 405);
+    if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
     const payload = (await request.json()) as AnalyticsPayload;
     const playerId = readId(payload.playerId);
-    if (!playerId) return json(request, { error: "埋点数据无效。" }, 400);
+    if (!playerId) return json({ error: "埋点数据无效。" }, 400);
     if (payload.eventType === "game_start") {
       const sessionId = readId(payload.sessionId);
-      if (!sessionId) return json(request, { error: "场次数据无效。" }, 400);
+      if (!sessionId) return json({ error: "场次数据无效。" }, 400);
       await db.prepare("INSERT OR IGNORE INTO game_sessions (session_id, player_id, source_channel) VALUES (?, ?, ?)")
         .bind(sessionId, playerId, readLabel(payload.sourceChannel, "direct")).run();
-      return json(request, { ok: true }, 201);
+      return json({ ok: true }, 201);
     }
     if (payload.eventType === "share") {
       const eventId = readId(payload.eventId);
-      if (!eventId) return json(request, { error: "转发数据无效。" }, 400);
+      if (!eventId) return json({ error: "转发数据无效。" }, 400);
       await db.prepare("INSERT OR IGNORE INTO share_events (event_id, player_id, channel) VALUES (?, ?, ?)")
         .bind(eventId, playerId, readLabel(payload.channel, "other")).run();
-      return json(request, { ok: true }, 201);
+      return json({ ok: true }, 201);
     }
-    return json(request, { error: "不支持的埋点类型。" }, 400);
+    return json({ error: "不支持的埋点类型。" }, 400);
   } catch (error) {
-    return routeError(request, error);
+    return routeError(error);
   }
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request) });
-    if (url.pathname === "/health") return json(request, { ok: true, service: "doubao-dance-api" });
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
+    if (url.pathname === "/health") return json({ ok: true, service: "doubao-dance-api" });
     if (url.pathname === "/api/leaderboard") return leaderboard(request, env.DB);
     if (url.pathname === "/api/analytics") return analytics(request, env.DB);
-    return json(request, { error: "Not found" }, 404);
+    return json({ error: "Not found" }, 404);
   },
 };
