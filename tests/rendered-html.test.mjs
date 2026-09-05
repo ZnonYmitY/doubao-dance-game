@@ -55,6 +55,8 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   assert.match(page, /onPointerDown=\{handlePointerDown\}/);
   assert.match(page, /onPointerUp=\{handlePointerUp\}/);
   assert.match(page, /onKeyDown=\{handleKeyDown\}/);
+  assert.match(page, /分享本局/);
+  assert.match(page, /二维码 \+ 文案/);
   assert.match(page, /本年度调整已完成/);
   assert.match(page, /年度绩效/);
   assert.match(page, /getPerformanceRating/);
@@ -68,6 +70,7 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   assert.match(page, /扫码加入合成大豆包/);
   assert.doesNotMatch(page, /扫码加入组织碰撞实验/);
   assert.match(page, /await navigator\.share/);
+  assert.match(page, /className=\"share-button\"/);
   assert.match(page, /window\.addEventListener\("pageshow", restorePage\)/);
   assert.match(page, /<img src=\{publicAsset\("\/icons\/level-08-real-doubao\.png"\)\} alt=""/);
   assert.match(page, /两个 Doubao Dance 合成大豆包，并升起一座高峰。/);
@@ -123,6 +126,14 @@ test("keeps first-entry alias, WeChat-safe sharing, hidden analytics, and resili
   assert.match(page, /method: "PUT"/);
   assert.match(page, /QRCode\.toDataURL/);
   assert.match(page, /扫码加入合成大豆包/);
+  assert.match(page, /className="share-button"/);
+  assert.match(page, /INVITE_SHARE_COPY/);
+  assert.match(page, /微信扫一扫，直接开玩/);
+  assert.match(page, /无需下载 · 手机电脑都能玩/);
+  assert.match(page, /copyInviteLink/);
+  assert.match(page, /nativeShareInvite/);
+  assert.match(page, /setInviteShareOpen\(true\)/);
+  assert.match(page, /setInviteShareOpen\(false\)/);
   assert.match(page, /navigator\.canShare/);
   assert.match(page, /toDataURL\("image\/png"\)/);
   assert.match(page, /微信内请长按图片保存/);

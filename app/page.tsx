@@ -87,6 +87,7 @@ const DROP_COOLDOWN = 430;
 const DANGER_DURATION = 2500;
 const DROP_POOL = [0, 0, 0, 0, 1, 1, 2];
 const LEADERBOARD_CACHE_KEY = "doubao-dance-leaderboard-cache";
+const INVITE_SHARE_COPY = "让组织碰撞起来？从 Mira 一路合成到 Doubao Dance，合出大豆包，勇攀高峰。";
 
 const pickDropLevel = () => DROP_POOL[Math.floor(Math.random() * DROP_POOL.length)];
 
@@ -322,6 +323,9 @@ export default function Home() {
   const [shareState, setShareState] = useState<"idle" | "creating" | "done" | "error">("idle");
   const [sharePreviewUrl, setSharePreviewUrl] = useState("");
   const [shareHint, setShareHint] = useState("长按图片可直接保存到手机相册");
+  const [inviteShareOpen, setInviteShareOpen] = useState(false);
+  const [inviteQrUrl, setInviteQrUrl] = useState("");
+  const [inviteShareHint, setInviteShareHint] = useState("扫码或转发链接，邀请同事来一局");
   const syncScore = useCallback((delta: number) => {
     scoreRef.current += delta;
     setScore(scoreRef.current);
@@ -537,6 +541,7 @@ export default function Home() {
     setSettingsOpen(false);
     setShareState("idle");
     setSharePreviewUrl("");
+    setInviteShareOpen(false);
     shareFileRef.current = null;
     setMyRank(null);
     setScoreSyncState("idle");
@@ -1498,6 +1503,60 @@ export default function Home() {
     void postAnalytics({ eventType: "share", eventId: createTrackingId("share"), channel });
   }, [postAnalytics]);
 
+  const openInviteShare = async () => {
+    pausedRef.current = true;
+    setInviteShareOpen(true);
+    setInviteShareHint("扫码或转发链接，邀请同事来一局");
+    if (inviteQrUrl) return;
+    try {
+      const qrDataUrl = await QRCode.toDataURL(gameShareUrl(), {
+        width: 420,
+        margin: 2,
+        errorCorrectionLevel: "H",
+        color: { dark: "#10183A", light: "#FFFFFF" },
+      });
+      setInviteQrUrl(qrDataUrl);
+    } catch {
+      setInviteShareHint("二维码生成失败，请重试或直接复制链接");
+    }
+  };
+
+  const closeInviteShare = () => {
+    setInviteShareOpen(false);
+    if (!gameOverRef.current && usernameRef.current) {
+      lastFrameRef.current = performance.now();
+      pausedRef.current = false;
+    }
+  };
+
+  const nativeShareInvite = async () => {
+    if (!navigator.share) {
+      setInviteShareHint("当前浏览器不支持系统分享，请复制链接发送");
+      return;
+    }
+    try {
+      await navigator.share({ title: "合成大豆包", text: INVITE_SHARE_COPY, url: gameShareUrl() });
+      trackShare("system_share");
+      setInviteShareHint("分享面板已打开，发送后回来继续合成");
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        setInviteShareHint("系统分享未完成，请复制链接发送");
+      }
+    } finally {
+      lastFrameRef.current = performance.now();
+    }
+  };
+
+  const copyInviteLink = async () => {
+    try {
+      await navigator.clipboard.writeText(`${INVITE_SHARE_COPY}\n${gameShareUrl()}`);
+      trackShare("copy_link");
+      setInviteShareHint("文案和游戏链接已复制");
+    } catch {
+      setInviteShareHint("复制失败，可让同事直接扫描二维码");
+    }
+  };
+
   const selectWechatChannel = (channel: "wechat_friend" | "wechat_moments") => {
     trackShare(channel);
     setShareHint(channel === "wechat_friend"
@@ -1559,6 +1618,9 @@ export default function Home() {
           <p className="subtitle">{username ? `@${username} · 让组织碰撞起来？` : "让组织碰撞起来？"}</p>
         </div>
         <div className="header-actions">
+          <button className="share-button" type="button" onClick={() => void openInviteShare()} aria-label="分享游戏">
+            <b>享</b><span>分享</span>
+          </button>
           <button className="rank-button" type="button" onClick={openLeaderboard} aria-label="查看排行榜">
             <b>榜</b><span>排行</span>
           </button>
@@ -1582,6 +1644,16 @@ export default function Home() {
           <strong>{peaks}</strong>
         </div>
       </section>
+
+      {started && !gameOver && (
+        <section className="share-launch-card" aria-label="游戏中分享入口">
+          <div>
+            <b>玩着也能分享</b>
+            <span>二维码 + 文案，随时邀请同事来一局</span>
+          </div>
+          <button type="button" onClick={() => void openInviteShare()}>分享本局</button>
+        </section>
+      )}
 
       <section className="play-layout">
         <div className="next-card" aria-label={`下一个图标：${LEVELS[nextLevel].name}`}>
@@ -1712,6 +1784,43 @@ export default function Home() {
         </div>
       )}
 
+      {inviteShareOpen && (
+        <div className="modal-backdrop invite-share-backdrop" role="presentation" onPointerDown={(event) => {
+          if (event.target === event.currentTarget) closeInviteShare();
+        }}>
+          <section className="modal invite-share-modal" role="dialog" aria-modal="true" aria-labelledby="invite-share-title">
+            <div className="modal-heading">
+              <div>
+                <p className="eyebrow">SHARE THE FUN</p>
+                <h2 id="invite-share-title">扫码加入合成大豆包</h2>
+              </div>
+              <button className="close-button" type="button" onClick={closeInviteShare} aria-label="关闭分享界面">×</button>
+            </div>
+            <div className="invite-share-brand">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={publicAsset("/icons/level-08-real-doubao.png")} alt="合成大豆包" />
+              <div><b>合成大豆包</b><span>@{username} 邀你来一局</span></div>
+            </div>
+            <p className="invite-share-copy">{INVITE_SHARE_COPY}</p>
+            <div className="invite-qr-card">
+              {inviteQrUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={inviteQrUrl} alt="合成大豆包游戏二维码" />
+              ) : (
+                <div className="invite-qr-loading">正在生成二维码…</div>
+              )}
+              <strong>微信扫一扫，直接开玩</strong>
+              <span>无需下载 · 手机电脑都能玩</span>
+            </div>
+            <p className="share-preview-hint" role="status">{inviteShareHint}</p>
+            <div className="invite-share-actions">
+              <button className="secondary-button" type="button" onClick={() => void copyInviteLink()}>复制文案和链接</button>
+              <button className="primary-button" type="button" onClick={() => void nativeShareInvite()}>系统分享</button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {settingsOpen && (
         <div className="modal-backdrop" role="presentation" onPointerDown={(event) => {
           if (event.target === event.currentTarget) closeSettings();
@@ -1749,7 +1858,7 @@ export default function Home() {
         </div>
       )}
 
-      {gameOver && !leaderboardOpen && (
+      {gameOver && !leaderboardOpen && !inviteShareOpen && (
         <div className="modal-backdrop summary-backdrop">
           <section className="modal summary-card" role="dialog" aria-modal="true" aria-labelledby="summary-title">
             <div className="summary-ribbons" aria-hidden="true"><i /><i /><i /><i /><i /></div>
