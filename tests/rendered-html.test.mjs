@@ -29,9 +29,10 @@ test("server-renders the organization merge game", async () => {
 });
 
 test("keeps gameplay, mobile input, annual review, and final icons in source", async () => {
-  const [page, layout, packageJson, iconGuide] = await Promise.all([
+  const [page, layout, styles, packageJson, iconGuide] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../public/icons/README.md", import.meta.url), "utf8"),
   ]);
@@ -58,6 +59,9 @@ test("keeps gameplay, mobile input, annual review, and final icons in source", a
   assert.match(page, /context\.strokeText\("勇 攀 高 峰"/);
   assert.doesNotMatch(page, /图标槽位已预留/);
   assert.match(layout, /viewportFit: "cover"/);
+  assert.match(styles, /--playfield-top: #dbe4f4/);
+  assert.match(styles, /--playfield-bottom: #bfcee6/);
+  assert.doesNotMatch(styles, /linear-gradient\(180deg, #ffffff 0%, #f5f7ff 100%\)/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(iconGuide, /level-07-doubao-dance\.png/);
   await Promise.all([

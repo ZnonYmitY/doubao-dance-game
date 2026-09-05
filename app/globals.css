@@ -10,6 +10,9 @@
   --pink: #ff3f8e;
   --paper: #f5f7ff;
   --white: #ffffff;
+  --playfield-top: #dbe4f4;
+  --playfield-bottom: #bfcee6;
+  --playfield-grid: rgba(37, 63, 126, 0.085);
 }
 
 * {
@@ -293,11 +296,12 @@ h1 {
   border: 2px solid rgba(16, 24, 58, 0.11);
   border-radius: 25px;
   background:
-    linear-gradient(rgba(51, 112, 255, 0.043) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(51, 112, 255, 0.043) 1px, transparent 1px),
-    linear-gradient(180deg, #ffffff 0%, #f5f7ff 100%);
-  background-size: 24px 24px, 24px 24px, auto;
-  box-shadow: 0 23px 58px rgba(32, 48, 96, 0.13), inset 0 -12px 32px rgba(51, 112, 255, 0.055);
+    radial-gradient(circle at 50% 5%, rgba(255, 255, 255, 0.2), transparent 44%),
+    linear-gradient(var(--playfield-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--playfield-grid) 1px, transparent 1px),
+    linear-gradient(165deg, var(--playfield-top) 0%, var(--playfield-bottom) 100%);
+  background-size: auto, 24px 24px, 24px 24px, auto;
+  box-shadow: 0 23px 58px rgba(32, 48, 96, 0.16), inset 0 -18px 38px rgba(37, 63, 126, 0.08);
   transition: border-color 180ms ease, box-shadow 180ms ease;
 }
 
@@ -344,7 +348,7 @@ h1 {
   display: grid;
   justify-items: center;
   gap: 5px;
-  color: #8a93af;
+  color: #626e90;
   text-align: center;
   transform: translate(-50%, -50%);
   pointer-events: none;
@@ -352,7 +356,7 @@ h1 {
 }
 
 .onboarding strong {
-  color: #5f698c;
+  color: #334267;
   font-size: 14px;
 }
 
